@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Must be named exactly "camunda.cfg.xml" and sit at the classpath root -
+  ProcessEnginesServletContextListener (declared in
+  camunda-engine/WEB-INF/web.xml) scans the classpath for files with that
+  exact name and builds one
+  ProcessEngine per file found, using the bean with id
+  "processEngineConfiguration" as the ProcessEngineConfiguration.
+
+  This is plain spring-beans.xsd XML (<bean>/<property>/init-method) -
+  that's the format camunda-engine's built-in classpath-scan bootstrap
+  parses internally regardless of whether the "camunda-engine-spring"
+  module is on the classpath. No org.springframework.* type appears
+  anywhere in this project's own Java code, and camunda-engine-spring is
+  not a dependency of this project.
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+  <!-- Pure-JEE JobExecutor: submits job execution to JBoss's built-in
+       ManagedExecutorService instead of a self-managed thread pool. See
+       com.example.camunda.ManagedJobExecutor for the JNDI lookup. -->
+  <bean id="jobExecutor" class="com.example.camunda.ManagedJobExecutor" init-method="init">
+    <property name="executorServiceJndiName" value="java:jboss/ee/concurrency/executor/default"/>
+  </bean>
+
+  <bean id="processEngineConfiguration" class="org.camunda.bpm.engine.impl.cfg.JtaProcessEngineConfiguration">
+    <property name="processEngineName" value="default"/>
+
+    <!-- Both of these are plain JNDI name strings - JtaProcessEngineConfiguration
+         does its own javax.naming.InitialContext lookup internally, so this
+         is pure JEE regardless of the Spring-XML dialect wrapping it. -->
+    <property name="dataSourceJndiName" value="java:jboss/datasources/ProcessEngine"/>
+    <property name="transactionManagerJndiName" value="java:/TransactionManager"/>
+
+    <property name="databaseSchemaUpdate" value="true"/>
+    <property name="history" value="full"/>
+    <property name="jobExecutorActivate" value="true"/>
+    <property name="jobExecutorDeploymentAware" value="true"/>
+    <property name="jobExecutor" ref="jobExecutor"/>
+  </bean>
+
+</beans>

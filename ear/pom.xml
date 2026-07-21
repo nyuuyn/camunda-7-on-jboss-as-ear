@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>camunda-7-on-jboss-as-ear</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>ear</artifactId>
+  <packaging>ear</packaging>
+
+  <name>ear</name>
+  <description>
+    Assembles camunda-engine and process-application into a single EAR for
+    convenience of deployment - they remain logically decoupled
+    (process-application only ever talks to camunda-engine over HTTP,
+    never shares its classes) even though they ship together here. The
+    engine jars needed by camunda-engine, plus camunda-engine-rest and its
+    Jackson provider, plus camunda-external-task-client, are bundled here
+    (ear/lib/). The datasource itself is not bundled - it's configured on
+    the server via server-config/add-datasource.cli.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>camunda-engine</artifactId>
+      <version>${project.version}</version>
+      <type>war</type>
+    </dependency>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>process-application</artifactId>
+      <version>${project.version}</version>
+      <type>ejb</type>
+    </dependency>
+
+    <!-- Bundled into ear/lib/, needed by camunda-engine. -->
+    <dependency>
+      <groupId>org.camunda.bpm</groupId>
+      <artifactId>camunda-engine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.camunda.bpm</groupId>
+      <artifactId>camunda-engine-rest-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.jaxrs</groupId>
+      <artifactId>jackson-jaxrs-json-provider</artifactId>
+    </dependency>
+
+    <!-- Bundled into ear/lib/, needed by process-application's
+         DemoExternalTaskWorker. -->
+    <dependency>
+      <groupId>org.camunda.bpm</groupId>
+      <artifactId>camunda-external-task-client</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>camunda-demo</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-ear-plugin</artifactId>
+        <configuration>
+          <version>8</version>
+          <defaultLibBundleDir>lib</defaultLibBundleDir>
+          <outputFileNameMapping>@{artifactId}@.@{extension}@</outputFileNameMapping>
+          <modules>
+            <webModule>
+              <groupId>com.example</groupId>
+              <artifactId>camunda-engine</artifactId>
+              <contextRoot>/camunda-engine</contextRoot>
+            </webModule>
+            <ejbModule>
+              <groupId>com.example</groupId>
+              <artifactId>process-application</artifactId>
+            </ejbModule>
+          </modules>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

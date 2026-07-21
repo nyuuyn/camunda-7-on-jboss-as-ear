@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>camunda-7-on-jboss-as-ear</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>integration-test</artifactId>
+  <packaging>jar</packaging>
+
+  <name>integration-test</name>
+  <description>
+    Builds a WildFly 26.1.3.Final image (a freely-pullable stand-in for
+    JBoss EAP 7.4 - see src/test/resources/docker/Dockerfile) with the
+    ProcessEngine datasource baked in, deploys ear/target/camunda-demo.ear
+    onto a container started from it via Testcontainers, and asserts the
+    demo process runs end-to-end and that the Job Executor's async
+    continuation actually ran on JBoss's ManagedExecutorService.
+
+    Opt-in only: bound to maven-failsafe-plugin (integration-test/verify
+    goals), not surefire, so "mvn clean package" - what the rest of this
+    project's README documents - never needs Docker. Run these with
+    "mvn verify" (Docker daemon required).
+  </description>
+
+  <properties>
+    <junit-jupiter.version>5.12.2</junit-jupiter.version>
+    <testcontainers.version>1.21.3</testcontainers.version>
+    <!-- Used by CamundaEarIT to locate the built EAR without hardcoding
+         the path in Java - see the failsafe systemPropertyVariables below. -->
+    <ear.file>${project.basedir}/../ear/target/camunda-demo.ear</ear.file>
+  </properties>
+
+  <dependencies>
+    <!-- Forces Maven to build ear before this module in the reactor.
+         Not actually used as a compile-time dependency - the test only
+         ever talks to the container over HTTP and docker exec, same as
+         process-application does with camunda-engine. -->
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>ear</artifactId>
+      <version>${project.version}</version>
+      <type>ear</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <systemPropertyVariables>
+            <ear.file>${ear.file}</ear.file>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>camunda-7-on-jboss-as-ear</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>process-application</artifactId>
+  <packaging>ejb</packaging>
+
+  <name>process-application</name>
+  <description>
+    The whole demo, contained in one module: demo-process.bpmn,
+    DemoProcessDeployer (deploys it to the engine over REST at startup),
+    and DemoExternalTaskWorker (handles the process's only task, also over
+    REST). No compile-time dependency on camunda-engine at all - this
+    module only ever talks to the engine over HTTP, on purpose, so it stays
+    genuinely decoupled from it rather than just organizationally separate.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>javax</groupId>
+      <artifactId>javaee-api</artifactId>
+    </dependency>
+    <!-- Bundled into ear/lib/ by the ear module. -->
+    <dependency>
+      <groupId>org.camunda.bpm</groupId>
+      <artifactId>camunda-external-task-client</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>process-application</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-ejb-plugin</artifactId>
+        <configuration>
+          <ejbVersion>3.2</ejbVersion>
+          <generateClient>false</generateClient>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>camunda-7-on-jboss-as-ear</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>camunda-7-on-jboss-as-ear</name>
+  <description>
+    Demonstrates deploying Camunda 7 as a Java EE EAR on JBoss EAP with no
+    Camunda subsystem installed, and with the process application fully
+    decoupled from the engine: camunda-engine hosts the bootstrapped engine
+    and its embedded REST API; process-application deploys the demo BPMN to
+    it over REST at startup and handles its only task over the External
+    Task REST API. process-application has no compile-time dependency on
+    camunda-engine. The engine's Job Executor thread pool comes from
+    JBoss's built-in ManagedExecutorService (java:jboss/ee/concurrency/executor/default)
+    instead of a thread pool it manages itself. The datasource is
+    configured on the server rather than bundled in the EAR - see
+    server-config/.
+  </description>
+
+  <modules>
+    <module>camunda-engine</module>
+    <module>process-application</module>
+    <module>ear</module>
+    <module>integration-test</module>
+  </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+
+    <!-- Last Camunda 7 line supporting the javax namespace (Jakarta EE 8),
+         matching JBoss EAP 7.4 / WildFly <= 26. Do not bump to a WildFly
+         27+/Jakarta EE 10 target without switching to the *-jakarta artifacts. -->
+    <camunda.version>7.19.0</camunda.version>
+    <javaee-api.version>7.0</javaee-api.version>
+    <!-- Matches the jackson-databind version camunda-engine-rest-core
+         resolves to transitively - keep these aligned to avoid mixed
+         Jackson minor versions on the classpath. -->
+    <jackson-jaxrs-json-provider.version>2.14.1</jackson-jaxrs-json-provider.version>
+
+    <maven-ejb-plugin.version>3.2.1</maven-ejb-plugin.version>
+    <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
+    <maven-ear-plugin.version>3.3.0</maven-ear-plugin.version>
+  </properties>
+
+  <!--
+    No scope is fixed here on purpose: the ear module needs these at
+    "compile" scope (so they get bundled into ear/lib/), while camunda-engine
+    and process-application only need them at "provided" scope (compiled
+    against, supplied at runtime via ear/lib/). Each module declares its
+    own scope explicitly.
+  -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.camunda.bpm</groupId>
+        <artifactId>camunda-engine</artifactId>
+        <version>${camunda.version}</version>
+      </dependency>
+      <!-- camunda-engine-rest with classifier "classes" is nearly empty
+           (just a MANIFEST.MF) - camunda-engine-rest-core (no classifier)
+           is where CamundaRestResources and the actual JAX-RS resource
+           implementations live. -->
+      <dependency>
+        <groupId>org.camunda.bpm</groupId>
+        <artifactId>camunda-engine-rest-core</artifactId>
+        <version>${camunda.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.jaxrs</groupId>
+        <artifactId>jackson-jaxrs-json-provider</artifactId>
+        <version>${jackson-jaxrs-json-provider.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.camunda.bpm</groupId>
+        <artifactId>camunda-external-task-client</artifactId>
+        <version>${camunda.version}</version>
+      </dependency>
+
+      <!-- Provided by JBoss EAP itself -->
+      <dependency>
+        <groupId>javax</groupId>
+        <artifactId>javaee-api</artifactId>
+        <version>${javaee-api.version}</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-ejb-plugin</artifactId>
+          <version>${maven-ejb-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>${maven-war-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-ear-plugin</artifactId>
+          <version>${maven-ear-plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

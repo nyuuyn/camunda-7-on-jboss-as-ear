@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+             id="demo-definitions"
+             targetNamespace="http://example.com/camunda/demo">
+
+  <process id="demoProcess" name="Demo Process" isExecutable="true">
+    <startEvent id="start" name="Start" />
+
+    <sequenceFlow id="flow1" sourceRef="start" targetRef="externalTask" />
+
+    <!-- No delegate class, no engine-side code at all: this task is
+         fetched, locked, executed and completed entirely over REST by
+         whatever subscribes to topic "demo-topic" - see
+         DemoExternalTaskWorker.
+
+         asyncBefore=true makes the engine create a Job to transition into
+         this task, run by ManagedJobExecutor on JBoss's managed thread
+         pool - without it, this process never exercises the Job Executor
+         at all, only the External Task Client path. -->
+    <serviceTask id="externalTask" name="External Demo Task"
+                 camunda:type="external"
+                 camunda:topic="demo-topic"
+                 camunda:asyncBefore="true" />
+
+    <sequenceFlow id="flow2" sourceRef="externalTask" targetRef="end" />
+
+    <endEvent id="end" name="End" />
+  </process>
+</definitions>

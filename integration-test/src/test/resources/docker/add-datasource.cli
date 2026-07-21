@@ -1,0 +1,29 @@
+## Offline/embedded-server variant of server-config/add-datasource.cli,
+## for baking the datasource into the image at "docker build" time instead
+## of running it against a live server via --connect.
+##
+## Unlike server-config/add-datasource.cli, this does NOT add an H2 driver
+## module or jdbc-driver=h2 - WildFly's default standalone.xml already
+## registers one (driver-module-name "com.h2database.h2", used by the
+## built-in ExampleDS), confirmed by probing a fresh container. Re-adding
+## it fails with "WFLYCTL0212: Duplicate resource". We just reuse it.
+##
+## Uses an in-memory H2 URL (containers are ephemeral, no need for a
+## file-based DB / volume) unlike the file-based URL in
+## server-config/add-datasource.cli.
+
+embed-server --std-out=echo --server-config=standalone.xml
+
+data-source add \
+    --name=ProcessEngine \
+    --jndi-name=java:jboss/datasources/ProcessEngine \
+    --driver-name=h2 \
+    --connection-url=jdbc:h2:mem:process-engine;DB_CLOSE_DELAY=-1 \
+    --user-name=sa \
+    --password=sa \
+    --use-ccm=true \
+    --max-pool-size=5 \
+    --blocking-timeout-wait-millis=5000 \
+    --enabled=true
+
+stop-embedded-server
