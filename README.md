@@ -249,3 +249,7 @@ something you want tied to an application's deployment lifecycle.
 JBoss EAP 7.4 (Jakarta EE 8, `javax.*` namespace) + Camunda 7.19–7.22. This
 pairing predates Camunda's Jakarta EE 10 (`jakarta.*`) support, which
 targets WildFly 27+ via separate `-jakarta` artifacts — don't mix the two.
+
+## License
+
+[Apache License 2.0](LICENSE).
