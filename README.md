@@ -16,11 +16,16 @@ independent:
 
 - **`camunda-engine`** (war) — the process engine and nothing else.
   - `camunda.cfg.xml` declares the `processEngineConfiguration` bean
-    (`JtaProcessEngineConfiguration`) declaratively. `CamundaEngineBootstrapListener`
-    (a `@WebListener`, a few lines of code wrapping `ProcessEngines.init()`/`.destroy()`)
-    triggers that on webapp deployment, which scans the classpath for
-    `camunda.cfg.xml` and builds/registers the `"default"` engine from it.
-    An earlier version of this listener referenced
+    (`JtaProcessEngineConfiguration`) declaratively. `CamundaEngineBootstrap`,
+    an `@ApplicationScoped` CDI bean, triggers `ProcessEngines.init()`/`.destroy()`
+    via `@Observes @Initialized(ApplicationScoped.class)`/`@Destroyed` -
+    plain `@ApplicationScoped` alone would *not* do this, since CDI beans
+    are lazy by default; the observer methods are what force eager
+    instantiation at webapp startup. It also exposes the engine as an
+    injectable bean (`@Produces ProcessEngine`) for future CDI beans in
+    this WAR. Requires `WEB-INF/beans.xml` to make the WAR a recognized
+    bean archive. An earlier version of this bootstrap was a
+    `ServletContextListener` referencing
     `org.camunda.bpm.engine.test.impl.servlet.listener.ProcessEnginesServletContextListener` -
     a class name that turned out not to exist anywhere in `camunda-engine:7.19.0`
     (an artifact of unverified web research; caught by actually deploying
@@ -215,7 +220,8 @@ goals in the `integration-test` module, not `surefire`'s `test` goal.)
 showed up any other way (the project compiled and packaged fine both
 times):
 
-- `CamundaEngineBootstrapListener` replaces a listener class
+- `CamundaEngineBootstrap` (originally a `ServletContextListener`, now a
+  CDI bean - see the Architecture bullet above) replaces a listener class
   (`org.camunda.bpm.engine.test.impl.servlet.listener.ProcessEnginesServletContextListener`)
   that turned out not to exist in `camunda-engine:7.19.0` at all - a bad
   class name from earlier, unverified web research. Deployment failed with

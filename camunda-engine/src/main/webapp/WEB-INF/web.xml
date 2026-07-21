@@ -6,8 +6,9 @@
 
   <display-name>camunda-demo-web</display-name>
 
-  <!-- com.example.camunda.CamundaEngineBootstrapListener is registered via
-       @WebListener, not declared here - see that class for what it does. -->
+  <!-- com.example.camunda.CamundaEngineBootstrap bootstraps the engine via
+       CDI (@Observes @Initialized(ApplicationScoped.class)), not a
+       listener declared here - see that class and WEB-INF/beans.xml. -->
 
   <!--
     Required by camunda-engine-rest for the External Task REST API's
