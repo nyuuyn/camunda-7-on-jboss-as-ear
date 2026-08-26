@@ -27,12 +27,17 @@ import javax.enterprise.inject.Produces;
  * Requires WEB-INF/beans.xml for this WAR to be recognized as a CDI bean
  * archive - without it, this class would never be discovered and none of
  * this would fire.
+ *
+ * Also runs IdentityBootstrap once the engine is up, to create a set of
+ * example users/groups/authorizations - see that class for why it has to
+ * tolerate concurrent creation across nodes (issue #1).
  */
 @ApplicationScoped
 public class CamundaEngineBootstrap {
 
     void onStart(@Observes @Initialized(ApplicationScoped.class) Object init) {
         ProcessEngines.init();
+        IdentityBootstrap.run(ProcessEngines.getDefaultProcessEngine());
     }
 
     void onStop(@Observes @Destroyed(ApplicationScoped.class) Object destroyed) {

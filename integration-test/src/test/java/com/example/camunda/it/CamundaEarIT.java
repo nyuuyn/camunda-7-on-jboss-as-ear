@@ -76,6 +76,43 @@ class CamundaEarIT {
     }
 
     @Test
+    void identityBootstrapCreatesExampleUsersAndGroups() throws Exception {
+        // IdentityBootstrap.run() executes synchronously inside
+        // CamundaEngineBootstrap.onStart(), before the webapp finishes
+        // starting - and jboss's own Wait strategy above already blocks
+        // until /engine-rest/engine responds, which can't happen before
+        // that. So by the time we get here, bootstrap has already run;
+        // no extra polling needed (unlike the process-instance assertions
+        // below, which wait on DemoProcessDeployer's independent EJB retry
+        // loop).
+        assertUserExists("admin");
+        assertUserExists("support");
+        assertUserExists("readonly");
+
+        assertGroupMembership("admin", "camunda-admin");
+        assertGroupMembership("support", "support");
+        assertGroupMembership("readonly", "readonly");
+
+        String adminAuthorizations = get(baseUrl() + "/authorization?groupIdIn=camunda-admin");
+        assertTrue(adminAuthorizations.contains("\"groupId\":\"camunda-admin\""),
+                "expected IdentityBootstrap to have granted the camunda-admin group an authorization, got: "
+                        + adminAuthorizations);
+    }
+
+    private void assertUserExists(String userId) {
+        String body = get(baseUrl() + "/user?id=" + userId);
+        assertTrue(body.contains("\"id\":\"" + userId + "\""),
+                "expected IdentityBootstrap to have created user '" + userId + "', got: " + body);
+    }
+
+    private void assertGroupMembership(String userId, String groupId) {
+        String body = get(baseUrl() + "/group?id=" + groupId + "&member=" + userId);
+        assertTrue(body.contains("\"id\":\"" + groupId + "\""),
+                "expected IdentityBootstrap to have made '" + userId + "' a member of group '" + groupId
+                        + "', got: " + body);
+    }
+
+    @Test
     void jobExecutorRunsOnJBossManagedThreadPool() throws Exception {
         waitForProcessDefinitionDeployed();
 

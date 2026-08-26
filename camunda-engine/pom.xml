@@ -22,6 +22,11 @@
     classloader with it. No process definitions or business logic live here.
   </description>
 
+  <properties>
+    <junit-jupiter.version>5.12.2</junit-jupiter.version>
+    <h2.version>2.2.224</h2.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>javax</groupId>
@@ -43,6 +48,24 @@
       <groupId>com.fasterxml.jackson.jaxrs</groupId>
       <artifactId>jackson-jaxrs-json-provider</artifactId>
       <scope>provided</scope>
+    </dependency>
+
+    <!-- Test-only: IdentityBootstrapConcurrencyTest runs the real engine
+         (ProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration())
+         against an in-memory H2 database instead of JBoss's JTA datasource,
+         to exercise IdentityBootstrap's unique-constraint race handling
+         against a real database without needing a container. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>${h2.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
