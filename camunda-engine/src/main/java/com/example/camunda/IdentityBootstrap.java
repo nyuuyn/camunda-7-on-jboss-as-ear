@@ -15,6 +15,8 @@ import org.camunda.bpm.engine.identity.Group;
 import org.camunda.bpm.engine.identity.User;
 import org.camunda.bpm.engine.impl.util.ExceptionUtil;
 
+import javax.enterprise.context.Dependent;
+import javax.transaction.Transactional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,8 +38,16 @@ import java.util.logging.Logger;
  * treats a unique-constraint violation as "another node already created
  * this concurrently, nothing left to do" instead of a fatal deployment
  * error - see isConcurrentCreateConflict below for how that's detected.
+ *
+ * <p>A {@code @Dependent} CDI bean rather than a static utility: run() is
+ * {@code @Transactional}, and that annotation only does anything when the
+ * container can intercept the call - which requires a non-final, non-static
+ * method on an actual (proxyable) bean, invoked through an injected
+ * reference rather than a direct static call. See CamundaEngineBootstrap for
+ * the {@code @Inject} call site.
  */
-final class IdentityBootstrap {
+@Dependent
+class IdentityBootstrap {
 
     private static final Logger LOGGER = Logger.getLogger(IdentityBootstrap.class.getName());
 
@@ -48,10 +58,8 @@ final class IdentityBootstrap {
     static final String USER_SUPPORT = "support";
     static final String USER_READONLY = "readonly";
 
-    private IdentityBootstrap() {
-    }
-
-    static void run(ProcessEngine engine) {
+    @Transactional
+    public void run(ProcessEngine engine) {
         IdentityService identityService = engine.getIdentityService();
         AuthorizationService authorizationService = engine.getAuthorizationService();
 

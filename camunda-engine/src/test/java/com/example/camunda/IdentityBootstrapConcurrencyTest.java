@@ -72,7 +72,7 @@ class IdentityBootstrapConcurrencyTest {
                     // IdentityBootstrap.run() at the same instant, the way
                     // several domain nodes deploying in parallel would.
                     startSignal.await();
-                    IdentityBootstrap.run(engine);
+                    new IdentityBootstrap().run(engine);
                 } catch (Throwable t) {
                     failureCount.incrementAndGet();
                     synchronized (failures) {

@@ -8,6 +8,7 @@ import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Produces;
+import javax.inject.Inject;
 
 /**
  * Bootstraps the engine via CDI instead of a ServletContextListener - a
@@ -30,14 +31,20 @@ import javax.enterprise.inject.Produces;
  *
  * Also runs IdentityBootstrap once the engine is up, to create a set of
  * example users/groups/authorizations - see that class for why it has to
- * tolerate concurrent creation across nodes (issue #1).
+ * tolerate concurrent creation across nodes (issue #1). IdentityBootstrap is
+ * injected (rather than called statically) so its {@code @Transactional}
+ * run() goes through the CDI proxy and is actually intercepted - a direct
+ * static/self call bypasses interceptors entirely.
  */
 @ApplicationScoped
 public class CamundaEngineBootstrap {
 
+    @Inject
+    IdentityBootstrap identityBootstrap;
+
     void onStart(@Observes @Initialized(ApplicationScoped.class) Object init) {
         ProcessEngines.init();
-        IdentityBootstrap.run(ProcessEngines.getDefaultProcessEngine());
+        identityBootstrap.run(ProcessEngines.getDefaultProcessEngine());
     }
 
     void onStop(@Observes @Destroyed(ApplicationScoped.class) Object destroyed) {
