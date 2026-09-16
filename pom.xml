@@ -23,8 +23,10 @@
     direct Java-API access to the running ProcessEngine. The engine's Job
     Executor thread pool comes from JBoss's built-in ManagedExecutorService
     (java:jboss/ee/concurrency/executor/default) instead of a thread pool
-    it manages itself. The datasource is configured on the server rather
-    than bundled in the EAR - see server-config/.
+    it manages itself. The datasource is declared inside the EAR too, via
+    @DataSourceDefinition on CamundaEngineBootstrap, with its JDBC driver
+    bundled as an ordinary runtime dependency - no server-side setup is
+    required at all.
   </description>
 
   <modules>

@@ -22,10 +22,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Boots a WildFly container (see docker/Dockerfile - a freely-pullable
- * stand-in for JBoss EAP 7.4, with the ProcessEngine datasource baked in),
- * deploys ear/target/camunda-demo.ear onto it, and drives the demo process
- * end-to-end purely over REST/docker-exec - the same black-box perspective
- * an operator would have, not by sharing any classes with the deployed app.
+ * stand-in for JBoss EAP 7.4; the ProcessEngine datasource is declared
+ * inside the EAR itself via @DataSourceDefinition, not baked into the
+ * image), deploys ear/target/camunda-demo.ear onto it, and drives the demo
+ * process end-to-end purely over REST/docker-exec - the same black-box
+ * perspective an operator would have, not by sharing any classes with the
+ * deployed app.
  *
  * Every endpoint, log message, and CLI output format asserted on below was
  * confirmed against a real container run during development, not guessed
@@ -43,8 +45,7 @@ class CamundaEarIT {
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(90);
 
     private static final ImageFromDockerfile IMAGE = new ImageFromDockerfile("camunda-demo-wildfly-test", false)
-            .withFileFromClasspath("Dockerfile", "docker/Dockerfile")
-            .withFileFromClasspath("add-datasource.cli", "docker/add-datasource.cli");
+            .withFileFromClasspath("Dockerfile", "docker/Dockerfile");
 
     @Container
     static GenericContainer<?> jboss = new GenericContainer<>(IMAGE)

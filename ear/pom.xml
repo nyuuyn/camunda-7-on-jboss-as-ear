@@ -25,8 +25,9 @@
     in ear/lib/ rather than staying REST-only. The engine jars needed by
     camunda-engine, plus camunda-engine-rest and its Jackson provider, plus
     camunda-external-task-client, are bundled here (ear/lib/). The
-    datasource itself is not bundled - it's configured on the server via
-    server-config/add-datasource.cli.
+    datasource itself is bundled too - camunda-engine declares it via
+    @DataSourceDefinition and ships its JDBC driver as an ordinary runtime
+    dependency in its own WEB-INF/lib, so no server-side setup is needed.
   </description>
 
   <dependencies>

@@ -31,8 +31,10 @@
 
     <!-- Both of these are plain JNDI name strings - JtaProcessEngineConfiguration
          does its own javax.naming.InitialContext lookup internally, so this
-         is pure JEE regardless of the Spring-XML dialect wrapping it. -->
-    <property name="dataSourceJndiName" value="java:jboss/datasources/ProcessEngine"/>
+         is pure JEE regardless of the Spring-XML dialect wrapping it.
+         dataSourceJndiName matches the name on CamundaEngineBootstrap's
+         @DataSourceDefinition, which declares the datasource itself. -->
+    <property name="dataSourceJndiName" value="java:app/datasources/ProcessEngine"/>
     <property name="transactionManagerJndiName" value="java:/TransactionManager"/>
 
     <property name="databaseSchemaUpdate" value="true"/>

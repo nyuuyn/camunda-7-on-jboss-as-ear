@@ -50,22 +50,28 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Test-only: IdentityBootstrapConcurrencyTest runs the real engine
-         (ProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration())
-         against an in-memory H2 database instead of JBoss's JTA datasource,
-         to exercise IdentityBootstrap's unique-constraint race handling
-         against a real database without needing a container. -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${junit-jupiter.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- Bundled into WEB-INF/lib (runtime scope, not test) so
+         org.h2.jdbcx.JdbcDataSource is visible to this WAR's own
+         classloader - CamundaEngineBootstrap's @DataSourceDefinition needs
+         to load it directly (see that class's javadoc), and doing it this
+         way means no server module install is needed at all for the demo
+         datasource. Also used by IdentityBootstrapConcurrencyTest, which
+         runs the real engine
+         (ProcessEngineConfiguration.createStandaloneInMemProcessEngineConfiguration())
+         against an in-memory H2 database instead of JBoss's JTA datasource,
+         to exercise IdentityBootstrap's unique-constraint race handling
+         against a real database without needing a container. -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>${h2.version}</version>
-      <scope>test</scope>
+      <scope>runtime</scope>
     </dependency>
   </dependencies>
 

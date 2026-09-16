@@ -3,15 +3,16 @@ name: jboss-eap
 description: |
   Use this skill for JBoss EAP/WildFly application-server concerns in this project — EAR assembly and jboss-deployment-structure.xml, the datasources subsystem, JNDI names, the built-in ManagedExecutorService, jboss-cli.sh scripting, and running/testing against WildFly as a stand-in for JBoss EAP 7.4.
 
-  Use for: adding or editing datasources (server-config/add-datasource.cli); changing subdeployment isolation or module exclusions in jboss-deployment-structure.xml; JNDI lookups for JTA/datasources/managed executors; debugging deployment failures on JBoss/WildFly; adjusting the Testcontainers/Docker WildFly test image; swapping WildFly for a real EAP image.
+  Use for: adding or editing the @DataSourceDefinition-based datasource (camunda-engine's CamundaEngineBootstrap); changing subdeployment isolation or module exclusions in jboss-deployment-structure.xml; JNDI lookups for JTA/datasources/managed executors; debugging deployment failures on JBoss/WildFly; adjusting the Testcontainers/Docker WildFly test image; swapping WildFly for a real EAP image.
 
   Do not use for: Camunda engine configuration itself (camunda.cfg.xml, ManagedJobExecutor, REST embedding — see the camunda7 skill), or Camunda 8 tooling (use camunda-skills:*).
 ---
 
 # JBoss EAP / WildFly deployment (this project)
 
-This project's rule of thumb: **everything goes inside the EAR except the
-datasource**, which lives on the server (ADR-4 in
+This project's rule of thumb: **everything goes inside the EAR — including
+the datasource declaration AND its JDBC driver.** There is no required
+server-side setup at all (ADR-4 in
 [`docs/arc42/09-architecture-decisions.md`](../../../docs/arc42/09-architecture-decisions.md)).
 No Camunda WildFly Subsystem module is installed — see that same file's
 ADR-1 before "fixing" anything by reaching for the subsystem.
@@ -20,43 +21,59 @@ ADR-1 before "fixing" anything by reaching for the subsystem.
 
 | JNDI name | What it is | Where it's configured |
 |---|---|---|
-| `java:jboss/datasources/ProcessEngine` | The engine's datasource | Created once via `server-config/add-datasource.cli`; referenced from `camunda.cfg.xml`'s `dataSourceJndiName` |
+| `java:app/datasources/ProcessEngine` | The engine's datasource | Declared via `@DataSourceDefinition` on `CamundaEngineBootstrap` (camunda-engine); referenced from `camunda.cfg.xml`'s `dataSourceJndiName`. Its H2 driver is bundled into `camunda-engine.war`'s own `WEB-INF/lib` (`camunda-engine/pom.xml`, `runtime` scope) — no server-side install needed |
 | `java:/TransactionManager` | JTA transaction manager | Present out of the box; referenced from `camunda.cfg.xml`'s `transactionManagerJndiName` |
 | `java:jboss/ee/concurrency/executor/default` | The `ee` subsystem's default `ManagedExecutorService` | Present out of the box on JBoss EAP/WildFly; looked up by `ManagedJobExecutor.init()` and also injected via `@Resource ManagedExecutorService` in `DemoProcessDeployer` |
 
-If a deployment fails with a `NameNotFoundException` on any of these,
-check the datasource actually got added (see below) before assuming code
-is wrong — the first two only exist after the CLI script runs.
+If a deployment fails with a `NameNotFoundException` on
+`java:app/datasources/ProcessEngine`, check the EAR actually deployed
+cleanly (see below) — this datasource only exists once the EAR itself is
+up; there's no separate server-side resource to have forgotten to create.
 
-## Datasource setup (`server-config/add-datasource.cli`)
+## Datasource setup
 
-This is the **one** piece of server-side setup this project requires.
-Run once per target server:
+The `ProcessEngine` datasource is declared **inside the EAR**, via
+`@DataSourceDefinition` on `com.example.camunda.CamundaEngineBootstrap`
+(camunda-engine) — not a server-side `data-source add`. Its H2 driver is
+bundled straight into `camunda-engine.war`'s own `WEB-INF/lib`
+(`camunda-engine/pom.xml` ships `com.h2database:h2` at `runtime` scope,
+not `test`). **There is no server-side setup required at all** — confirmed
+by deploying the EAR to a completely stock WildFly with nothing
+pre-installed and getting a clean boot.
 
-```sh
-$JBOSS_HOME/bin/jboss-cli.sh --connect --file=server-config/add-datasource.cli
-```
+**Two non-obvious things about `@DataSourceDefinition` on WildFly/EAP**,
+both found by deploying and reading the resulting errors, not
+documentation:
 
-What it does, in order: `module add` (installs the H2 driver jar as a
-JBoss module with `javax.api,javax.transaction.api` dependencies),
-`jdbc-driver=h2:add`, `data-source add --name=ProcessEngine
---jndi-name=java:jboss/datasources/ProcessEngine ...`, then `:reload`.
+1. **`className` resolution is not the same as a CLI datasource's
+   `driver-class-name`.** A CLI `data-source add` matches its driver by
+   name against the datasources subsystem's `jdbc-driver` registry.
+   `@DataSourceDefinition` instead loads `className` directly through the
+   *deployment's own* module classloader — which is exactly why bundling
+   the driver jar in the WAR (rather than installing it as a server
+   module) is enough on its own; no `jboss-deployment-structure.xml`
+   dependency entry needed. (Deploying with the class visible nowhere
+   throws `ClassNotFoundException: org.h2.Driver`.)
+2. **`className` must be a `javax.sql.DataSource`/`XADataSource`/
+   `ConnectionPoolDataSource` implementation, not a `java.sql.Driver`.**
+   `org.h2.Driver` (what the CLI/`*-ds.xml` world wants) fails deployment
+   with `WFLYJCA0117: ... is not a valid javax.sql.DataSource
+   implementation`. H2's actual `DataSource` impl is
+   `org.h2.jdbcx.JdbcDataSource` — that's what `CamundaEngineBootstrap`
+   uses.
 
-Verify it's bound:
+**H2 is demo-only** (single connection pool, no HA). For anything beyond a
+local demo, swap in a real — ideally XA — database's driver dependency
+(Oracle/Postgres/etc.) and point `@DataSourceDefinition` at a matching
+`DataSource` implementation class so the engine's DB work fully
+participates in JTA two-phase commit.
 
-```sh
-$JBOSS_HOME/bin/jboss-cli.sh --connect \
-  --command="/subsystem=datasources/data-source=ProcessEngine:read-resource"
-```
-
-**H2 is demo-only** (in-memory/file-based, single connection pool, no HA).
-For anything beyond a local demo, replace it with a real — ideally XA —
-datasource (Oracle/Postgres/etc.) so the engine's DB work fully
-participates in JTA two-phase commit. Don't bundle a datasource as a
-deployable `*-ds.xml` inside the EAR instead — that was tried and reverted
-(ADR-4): it depends on JBoss's undocumented, version-sensitive
-auto-generated driver-name convention for a driver jar embedded in a
-deployment, which is a worse trade than the one-time CLI script.
+This is different from bundling a driver *jar* as an auto-detected
+`*-ds.xml` driver, which was tried and reverted before (ADR-4's original
+decision, and still a bad idea): that depends on JBoss's undocumented,
+version-sensitive auto-generated driver-name convention. A plain Maven
+runtime dependency loaded via `@DataSourceDefinition`'s normal
+classloading doesn't have that problem.
 
 ## EAR structure and `jboss-deployment-structure.xml`
 
@@ -90,6 +107,13 @@ controls classloading across the EAR's subdeployments:
   which breaks the External Task Client's date parsing silently. If you
   add another JAX-RS-consuming subdeployment and see the same silent
   deserialization failure, check whether it needs the same exclusion.
+- **No `<module>` dependency for the H2 driver** — `camunda-engine.war`
+  already ships `org.h2.jdbcx.JdbcDataSource` in its own `WEB-INF/lib`
+  (see "Datasource setup" above), so there's nothing for
+  `jboss-deployment-structure.xml` to wire up. If a real deployment ever
+  needs a driver installed as a server module instead of bundled, this is
+  where you'd add a `<dependencies><module name="..."/></dependencies>`
+  entry for `camunda-engine.war`.
 
 ## Deploying
 
@@ -98,11 +122,14 @@ mvn clean package                                        # produces ear/target/c
 cp ear/target/camunda-demo.ear $JBOSS_HOME/standalone/deployments/
 ```
 
-Nothing else is installed on the server beyond the one datasource — no
-subsystem module, no other config. If deployment fails, check
-`$JBOSS_HOME/standalone/log/server.log` for the actual exception; this
-project's history includes bugs (a nonexistent listener class, the JSON-B
-conflict above) that only surfaced this way, never at build/package time.
+Nothing is installed on the server beforehand — no subsystem module, no
+driver module, no other config, and no `data-source` resource to check
+(the datasource itself only exists once the EAR is deployed). If
+deployment fails, check `$JBOSS_HOME/standalone/log/server.log` for the
+actual exception; this project's history includes bugs (a nonexistent
+listener class, the JSON-B conflict above, the `@DataSourceDefinition`
+classloading/DataSource-vs-Driver issues above) that only surfaced this
+way, never at build/package time.
 
 ## WildFly as an EAP 7.4 stand-in (tests, CI)
 
@@ -128,12 +155,26 @@ WildFly 26 and EAP 7.4. Don't present integration-test results as proof
 this works on real EAP; say explicitly that it's only verified against
 WildFly.
 
-In the test image, the datasource is baked in at **build time** via
-`embed-server`/`stop-embedded-server` (edits `standalone.xml` without
-booting the server, so this Docker layer stays cached across ordinary
-runs) rather than the running-server CLI call used in production. The EAR
-itself is copied into the container **at test-run start**, not baked into
-the image, to keep that layer cache valid across ordinary EAR rebuilds.
+The test image bakes in **nothing datasource-related at all** — no
+`module add`, no `jdbc-driver=h2:add`, no `data-source add`. The
+`ProcessEngine` datasource and its H2 driver are both bundled in the EAR
+via `@DataSourceDefinition`/`camunda-engine.war`'s own `WEB-INF/lib`, so
+this shape deploys exactly the same way production does (§7.1 of the
+deployment view). The EAR itself is still copied into the container **at
+test-run start**, not baked into the image, to keep the image layer cache
+valid across ordinary EAR rebuilds.
+
+**`WORKDIR` in the Dockerfile is `$JBOSS_HOME`, not the image's default.**
+The `@DataSourceDefinition`'s H2 URL is a relative file path
+(`./camunda-h2-database/...`), which resolves against the JVM's
+`user.dir` — i.e., wherever `standalone.sh` was launched from. `$JBOSS_HOME`
+is `chmod -R g+rw`'d for the `jboss` user during the image build; its
+parent (`/opt/jboss`) is not. Deploying with a `WORKDIR` outside
+`$JBOSS_HOME` throws `Error while creating file
+/opt/jboss/camunda-h2-database` at boot. If you change the Dockerfile's
+base stage, keep `WORKDIR` somewhere the `jboss` user can actually write
+to.
+
 See `docs/arc42/07-deployment-view.md §7.2` before changing the
 Dockerfile/test harness — the caching structure is intentional.
 
@@ -146,13 +187,7 @@ Testcontainers-based integration tests need no extra CI setup.
 ## Quick command reference
 
 ```sh
-# Add the datasource (once per server)
-$JBOSS_HOME/bin/jboss-cli.sh --connect --file=server-config/add-datasource.cli
-
-# Inspect a resource
-$JBOSS_HOME/bin/jboss-cli.sh --connect --command="/subsystem=datasources/data-source=ProcessEngine:read-resource"
-
-# Build and deploy
+# Build and deploy - no server-side setup needed first
 mvn clean package
 cp ear/target/camunda-demo.ear $JBOSS_HOME/standalone/deployments/
 

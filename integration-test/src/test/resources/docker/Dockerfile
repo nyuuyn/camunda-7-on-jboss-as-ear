@@ -36,6 +36,18 @@ ENV JBOSS_HOME=/opt/jboss/wildfly
 COPY --from=wildfly-dist --chown=jboss:0 /opt/jboss/wildfly /opt/jboss/wildfly
 RUN chmod -R g+rw ${JBOSS_HOME}
 
+# WORKDIR must be under $JBOSS_HOME (not /opt/jboss, which stays root-owned
+# above) - standalone.sh launches java without cd'ing anywhere else, so the
+# JVM's user.dir is whatever this is, and CamundaEngineBootstrap's
+# @DataSourceDefinition uses a relative H2 file URL
+# ("./camunda-h2-database/...") that resolves against it. A real EAP host
+# normally launches standalone.sh from within $JBOSS_HOME too (interactively
+# from bin/, or via a service unit's WorkingDirectory), which the service
+# account owns - this just makes the test image match that instead of
+# Docker's default WORKDIR-is-the-image-root-owned-dir behavior (found by
+# deploying and hitting "Error while creating file /opt/jboss/camunda-h2-database").
+WORKDIR ${JBOSS_HOME}
+
 ENV LAUNCH_JBOSS_IN_BACKGROUND=true
 
 USER jboss
@@ -46,21 +58,14 @@ USER jboss
 # builds stages that are actually referenced).
 FROM ${BASE_IMAGE}
 
-USER root
-
-# Bakes in the "ProcessEngine" datasource (mirrors
-# server-config/add-datasource.cli, reusing the h2 driver WildFly already
-# ships for its own default ExampleDS - see add-datasource.cli) so the
-# container is ready to deploy the EAR onto as soon as it starts. The EAR
-# itself is copied in at container start (see CamundaEarIT), not baked in
-# here, so this image layer stays cached across ordinary rebuilds of the EAR.
-COPY add-datasource.cli /tmp/add-datasource.cli
-
-RUN ${JBOSS_HOME}/bin/jboss-cli.sh --file=/tmp/add-datasource.cli \
-    && rm /tmp/add-datasource.cli \
-    && chown -R jboss:root ${JBOSS_HOME}/standalone
-
-USER jboss
+# No datasource-baking step needed here anymore: the "ProcessEngine"
+# datasource is declared inside the EAR itself via @DataSourceDefinition
+# (see camunda-engine's CamundaEngineBootstrap), so it deploys/undeploys
+# with the EAR. All this image needs is the JDBC driver WildFly already
+# ships for its own default ExampleDS (module com.h2database.h2,
+# jdbc-driver=h2, confirmed present in a fresh container) - nothing to
+# install. The EAR itself is still copied in at container start (see
+# CamundaEarIT), not baked into the image.
 
 # -b 0.0.0.0: the base image's public interface defaults to 127.0.0.1,
 # unreachable from outside the container.

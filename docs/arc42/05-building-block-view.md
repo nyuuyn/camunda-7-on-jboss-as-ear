@@ -12,10 +12,8 @@ flowchart TB
         wu["camunda-web-ui (war)"]
     end
     it["integration-test\n(Testcontainers, opt-in via mvn verify)"]
-    sc["server-config/\n(one-time JBoss CLI setup)"]
 
     it -.builds & deploys.-> ear
-    sc -.configured once on the target server.-> ear
 ```
 
 | Module | Packaging | Responsibility |
@@ -25,7 +23,6 @@ flowchart TB
 | `camunda-web-ui` | `war` | Cockpit/Tasklist/Admin - Camunda's prebuilt `camunda-webapp` WAR, overlaid as-is. Genuinely separate subdeployment, but *not* REST-decoupled like `process-application` - it needs direct Java-API access to the running `ProcessEngine`. See §5.4. |
 | `ear` | `ear` | Assembles the three above into one deployable unit, plus the third-party jars they need (`ear/lib/`). |
 | `integration-test` | `jar` (test-only) | Builds a WildFly container, deploys the EAR onto it, and asserts the demo process runs, that job execution really lands on JBoss's managed thread pool, and that `camunda-web-ui` actually resolves the shared engine (a real login against it, not just "the WAR deployed"). |
-| `server-config/` | n/a (scripts) | JBoss CLI script to create the `ProcessEngine` datasource on a real server - the one piece of setup this project doesn't put inside the EAR. |
 
 ## 5.2 Level 2: `camunda-engine`
 

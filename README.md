@@ -31,7 +31,6 @@ camunda-web-ui (war)         -- Cockpit/Tasklist/Admin, overlaying
                                  ear/lib/, not REST
 ear                          -- assembles all three into one deployable EAR
 integration-test             -- Testcontainers suite proving the above
-server-config/                -- one-time JBoss datasource setup
 docs/arc42/                  -- full architecture documentation
 ```
 
@@ -46,12 +45,17 @@ needed for this step.
 
 ## Deploy
 
-1. Run `server-config/add-datasource.cli` once against your JBoss EAP
-   instance (see `server-config/README.md`) - the only server-side setup
-   this project requires.
-2. ```sh
-   cp ear/target/camunda-demo.ear $JBOSS_HOME/standalone/deployments/
-   ```
+No server-side setup at all - just deploy the EAR:
+
+```sh
+cp ear/target/camunda-demo.ear $JBOSS_HOME/standalone/deployments/
+```
+
+The `ProcessEngine` datasource is declared inside the EAR via
+`@DataSourceDefinition` (`camunda-engine`'s `CamundaEngineBootstrap`), and
+its H2 driver is bundled straight into `camunda-engine.war`'s own
+`WEB-INF/lib` (`camunda-engine/pom.xml`, `runtime`-scoped) - nothing to
+install on the server beforehand.
 
 ## Verify
 

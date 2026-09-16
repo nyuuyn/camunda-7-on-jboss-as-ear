@@ -62,7 +62,11 @@ a real external system would use.
 
 ---
 
-### ADR-4: Datasource configured on the server, not bundled in the EAR
+### ADR-4: Datasource and driver bundled in the EAR (superseded original decision)
+
+*Original decision (2026), superseded by Addendum 2 below - kept for
+history. Current state: the datasource and its driver both live in the
+EAR; there is no server-side setup at all.*
 
 **Context.** Everything else about container integration lives inside the
 EAR by design. A datasource *can* be bundled too, as a deployable
@@ -80,6 +84,72 @@ datasource once via CLI. It also matches how a real datasource would be
 managed operationally anyway (connection pool tuning, credentials, and
 swapping in a real XA database are server/ops concerns, not something to
 tie to an application's deployment lifecycle).
+
+**Addendum 1: the datasource *declaration* moved back into the EAR.** The
+`*-ds.xml`/driver-jar-bundling problem above is specifically about
+auto-detecting a driver from a jar embedded in the deployment - it doesn't
+apply to declaring the *pool* itself via the JEE-standard
+`@DataSourceDefinition` annotation. `CamundaEngineBootstrap` now carries
+`@DataSourceDefinition` for `java:app/datasources/ProcessEngine`.
+
+Two non-obvious things were found by deploying and reading the resulting
+errors, not from documentation:
+
+- **`@DataSourceDefinition`'s `className` is resolved differently from a
+  CLI-created datasource's `driver-class-name`.** A CLI `data-source add`
+  matches its driver by name against the datasources subsystem's
+  `jdbc-driver` registry. `@DataSourceDefinition` instead loads `className`
+  directly through the *deployment's own* module classloader
+  (`org.jboss.as.connector.deployers.datasource.DataSourceDefinitionInjectionSource`)
+  - deploying without the driver class visible anywhere threw
+  `ClassNotFoundException: org.h2.Driver`.
+- **`@DataSourceDefinition.className` must name a
+  `javax.sql.DataSource`/`XADataSource`/`ConnectionPoolDataSource`
+  implementation, not a `java.sql.Driver`.** `org.h2.Driver` (the class
+  the CLI/`*-ds.xml` world wants) fails deployment with `WFLYJCA0117:
+  ... is not a valid javax.sql.DataSource implementation`; H2's actual
+  `DataSource` implementation is `org.h2.jdbcx.JdbcDataSource`.
+
+**Addendum 2: the driver moved into the EAR too - server-side setup is
+now zero, by default.** Addendum 1 first solved the `className`
+classloading problem the same way the original CLI approach did (install
+`com.h2database.h2` as a server module, then add an explicit `<module>`
+dependency for `camunda-engine.war` in `jboss-deployment-structure.xml` so
+the deployment's classloader could see it). But that's solving the wrong
+problem for a driver like H2 that's perfectly redistributable: since
+`@DataSourceDefinition` just needs `className` loadable through the
+deployment's *own* classloader, bundling the driver jar directly in the
+WAR satisfies that with no server module involved at all.
+`camunda-engine/pom.xml` now ships `com.h2database:h2` at `runtime` scope
+(previously `test`-only), so `org.h2.jdbcx.JdbcDataSource` lands straight
+in `camunda-engine.war`'s own `WEB-INF/lib`. The `<module
+name="com.h2database.h2"/>` dependency in `jboss-deployment-structure.xml`
+was removed - confirmed unnecessary by deploying to a completely stock
+WildFly with no server-side setup at all and getting a clean boot.
+
+This doesn't retroactively make the original decision wrong: bundling a
+driver *jar* as an auto-detected `*-ds.xml` driver (the thing ADR-4
+rejected) and bundling one as a plain dependency a portable
+`@DataSourceDefinition`-declared pool loads via ordinary classloading are
+different mechanisms with different failure modes - only the former
+depends on JBoss's undocumented auto-generated driver-name convention.
+There's no `server-config/` directory or CLI script in this project
+anymore; if a real deployment ever needs a driver installed as a server
+module instead of bundled (e.g. a licensed production driver that can't be
+redistributed in build artifacts), that means reintroducing both a
+`module add`/`jdbc-driver=...:add` CLI step and an explicit `<module>`
+dependency for `camunda-engine.war` in `jboss-deployment-structure.xml` -
+the same shape Addendum 1 used before this addendum removed it.
+
+A third finding, specific to the Testcontainers test image, came out of
+verifying this: a writable `WORKDIR` is needed for `@DataSourceDefinition`'s
+relative H2 file URL to resolve (the JVM's `user.dir` is wherever
+`standalone.sh` was launched from) - see
+[Deployment View §7.2](07-deployment-view.md).
+
+See [Deployment View §7.1-7.2](07-deployment-view.md) and
+[Crosscutting Concepts §8.2](08-crosscutting-concepts.md) for the full
+picture.
 
 ---
 

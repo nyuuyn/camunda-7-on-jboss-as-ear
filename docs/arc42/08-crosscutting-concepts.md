@@ -33,10 +33,26 @@ something" (acquisition, external-task polling).
 
 JTA and the datasource are both referenced by **plain JNDI name strings**,
 not Java objects: `JtaProcessEngineConfiguration.setTransactionManagerJndiName("java:/TransactionManager")`
-and `.setDataSourceJndiName("java:jboss/datasources/ProcessEngine")`. The
+and `.setDataSourceJndiName("java:app/datasources/ProcessEngine")`. The
 engine performs its own `InitialContext` lookups internally - this is why
 neither of these needs Spring's `jee:jndi-lookup` namespace or any custom
 code; they're just configuration values.
+
+The datasource behind that second name is itself declared inside the EAR,
+via `@DataSourceDefinition` on `CamundaEngineBootstrap` - not a
+server-side `data-source add` - which is why the name lives under
+`java:app/` rather than the JBoss-proprietary `java:jboss/` the CLI
+approach used: `@DataSourceDefinition`'s `name` must be one of the four
+EE-standard JNDI namespaces (`comp`/`module`/`app`/`global`).
+`java:app` was chosen for EAR-wide visibility, matching `java:jboss/`'s
+old effective scope. `@DataSourceDefinition` resolves its `className` by
+loading it through the deployment's own module classloader, not the
+datasources subsystem's driver registry - which is exactly why
+`camunda-engine/pom.xml` bundles `com.h2database:h2` at `runtime` scope
+into `camunda-engine.war`'s own `WEB-INF/lib`, making the whole thing
+self-contained with zero server-side setup. See
+[ADR-4](09-architecture-decisions.md) and
+[Deployment View §7.1](07-deployment-view.md) for the full history.
 
 ## 8.3 Engine Bootstrap Format
 

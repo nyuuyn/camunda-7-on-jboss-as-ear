@@ -3,6 +3,7 @@ package com.example.camunda;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.ProcessEngines;
 
+import javax.annotation.sql.DataSourceDefinition;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
@@ -35,8 +36,39 @@ import javax.inject.Inject;
  * injected (rather than called statically) so its {@code @Transactional}
  * run() goes through the CDI proxy and is actually intercepted - a direct
  * static/self call bypasses interceptors entirely.
+ *
+ * {@code @DataSourceDefinition} below is the "ProcessEngine" datasource
+ * camunda.cfg.xml's {@code dataSourceJndiName} looks up - declared here,
+ * inside the EAR, instead of via a server-side {@code data-source add}
+ * (see docs/arc42/09-architecture-decisions.md, ADR-4 addendum). No
+ * server-side setup is required for this at all: WildFly resolves this
+ * annotation's {@code className} by loading it through camunda-engine.war's
+ * own module classloader, and pom.xml ships {@code com.h2database:h2} at
+ * {@code runtime} scope specifically so that classloader can find
+ * {@code org.h2.jdbcx.JdbcDataSource} straight out of this WAR's own
+ * WEB-INF/lib - no server module, no
+ * jboss-deployment-structure.xml dependency entry needed (confirmed by
+ * deploying to a completely stock WildFly). The name must be one of the
+ * four EE-standard JNDI namespaces (comp/module/app/global) - java:app so
+ * it's visible
+ * EAR-wide, matching the old java:jboss/... name's effective scope.
  */
 @ApplicationScoped
+@DataSourceDefinition(
+        // @DataSourceDefinition.className must be a javax.sql.DataSource/
+        // XADataSource/ConnectionPoolDataSource implementation, NOT a
+        // java.sql.Driver - org.h2.Driver (what the CLI's driver-class-name
+        // wants) fails deployment with WFLYJCA0117 "is not a valid
+        // javax.sql.DataSource implementation" (found by deploying).
+        // org.h2.jdbcx.JdbcDataSource is H2's DataSource implementation.
+        name = "java:app/datasources/ProcessEngine",
+        className = "org.h2.jdbcx.JdbcDataSource",
+        url = "jdbc:h2:./camunda-h2-database/process-engine;AUTO_SERVER=TRUE",
+        user = "sa",
+        password = "sa",
+        minPoolSize = 1,
+        maxPoolSize = 5
+)
 public class CamundaEngineBootstrap {
 
     @Inject
