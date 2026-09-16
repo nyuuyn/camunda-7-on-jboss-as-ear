@@ -37,9 +37,12 @@ JBoss configuration beyond that one datasource.
 ```mermaid
 flowchart TB
     subgraph build["docker build (cached)"]
-        base["quay.io/wildfly/wildfly:26.1.3.Final-jdk11"]
+        src["quay.io/wildfly/wildfly:26.1.3.Final-jdk11\n(source of $JBOSS_HOME only)"]
+        jdk["eclipse-temurin:17-centos7"]
+        wf["wildfly-jdk17 stage\n($JBOSS_HOME copied onto\nthe JDK 17 base)"]
         cli["add-datasource.cli\n(embed-server / stop-embedded-server\noffline variant)"]
-        base --> cli --> image["camunda-demo-wildfly-test image"]
+        src -. COPY --from= .-> wf
+        jdk --> wf --> cli --> image["camunda-demo-wildfly-test image"]
     end
     subgraph run["Testcontainers, per test run"]
         image --> container["container instance"]
@@ -55,6 +58,16 @@ Key differences from the production shape, and why:
   [ADR](09-architecture-decisions.md) and
   [Risks and Technical Debt](11-risks-and-technical-debt.md) for what this
   does and doesn't verify.
+- **$JBOSS_HOME copied onto a JDK 17 base, not quay.io's prebuilt jdk17
+  image** - quay.io never published a `wildfly:26.1.3.Final-jdk17` tag
+  (its jdk17 tags only start at WildFly 28, which is Jakarta EE 10 -
+  outside this project's `javax.*` target). The `Dockerfile`'s
+  `wildfly-jdk17` stage copies the already-installed `$JBOSS_HOME` out of
+  quay.io's jdk11-tagged image (a normal, fast registry pull) onto a JDK
+  17 base, rather than downloading the WildFly release tarball straight
+  from GitHub Releases the way the upstream `wildfly/wildfly-container`
+  Dockerfile does - that CDN throttled to ~20 KB/s in testing here,
+  turning a ~200MB download into hours.
 - **Datasource baked into the image at build time**, not applied via a
   running-server CLI call - `embed-server`/`stop-embedded-server` edits
   `standalone.xml` without booting the server, so this layer is cached
@@ -69,5 +82,5 @@ Key differences from the production shape, and why:
 ## 7.3 CI
 
 GitHub Actions (`.github/workflows/ci.yml`), `ubuntu-latest`: checks out,
-sets up JDK 11, runs `mvn -B verify`. GitHub-hosted runners have Docker
+sets up JDK 17, runs `mvn -B verify`. GitHub-hosted runners have Docker
 preinstalled, so the integration tests need no additional CI setup.

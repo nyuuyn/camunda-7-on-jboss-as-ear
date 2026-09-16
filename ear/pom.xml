@@ -59,6 +59,17 @@
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-external-task-client</artifactId>
     </dependency>
+    <!-- Bundled into ear/lib/ - camunda-external-task-client's built-in
+         XML DataFormatProvider needs jakarta.xml.bind.* at runtime (see
+         root pom.xml). Neither the JDK nor WildFly supplies this. -->
+    <dependency>
+      <groupId>jakarta.xml.bind</groupId>
+      <artifactId>jakarta.xml.bind-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

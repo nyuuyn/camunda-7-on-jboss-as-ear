@@ -33,18 +33,36 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
 
     <!-- Last Camunda 7 line supporting the javax namespace (Jakarta EE 8),
          matching JBoss EAP 7.4 / WildFly <= 26. Do not bump to a WildFly
-         27+/Jakarta EE 10 target without switching to the *-jakarta artifacts. -->
-    <camunda.version>7.19.0</camunda.version>
+         27+/Jakarta EE 10 target without switching to the *-jakarta artifacts.
+         camunda-engine/camunda-engine-rest-core/camunda-external-task-client
+         (the non-"-jakarta"-suffixed artifacts) still compile against
+         javax.* through 7.23.0 - confirmed by inspecting the compiled
+         classes, not just release notes. -->
+    <camunda.version>7.23.0</camunda.version>
     <javaee-api.version>7.0</javaee-api.version>
     <!-- Matches the jackson-databind version camunda-engine-rest-core
          resolves to transitively - keep these aligned to avoid mixed
          Jackson minor versions on the classpath. -->
     <jackson-jaxrs-json-provider.version>2.14.1</jackson-jaxrs-json-provider.version>
+    <!-- camunda-external-task-client's built-in XML DataFormatProvider
+         (used for application/xml process variables) references
+         jakarta.xml.bind.* internally as of 7.23.0, even though the
+         client's own artifact otherwise stays on javax.* - a narrow,
+         Camunda-side exception to this project's javax.* target, not a
+         general jakarta.* migration. JAXB itself has been absent from the
+         JDK since 11 either way, so this has to be supplied regardless of
+         Java version. Versions pinned to match exactly what
+         camunda-external-task-client:7.23.0 itself depends on
+         (org.camunda.bpm:camunda-parent:7.23.0's version.jakarta.xml.bind-api
+         / version.xml.jaxb-impl4 properties) rather than guessing a
+         compatible pair. -->
+    <jakarta.xml.bind-api.version>4.0.2</jakarta.xml.bind-api.version>
+    <jaxb-impl.version>4.0.5</jaxb-impl.version>
 
     <maven-ejb-plugin.version>3.2.1</maven-ejb-plugin.version>
     <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
@@ -83,6 +101,16 @@
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-external-task-client</artifactId>
         <version>${camunda.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.xml.bind</groupId>
+        <artifactId>jakarta.xml.bind-api</artifactId>
+        <version>${jakarta.xml.bind-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sun.xml.bind</groupId>
+        <artifactId>jaxb-impl</artifactId>
+        <version>${jaxb-impl.version}</version>
       </dependency>
 
       <!-- Provided by JBoss EAP itself -->

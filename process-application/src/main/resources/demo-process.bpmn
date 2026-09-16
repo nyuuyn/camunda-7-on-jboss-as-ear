@@ -4,7 +4,11 @@
              id="demo-definitions"
              targetNamespace="http://example.com/camunda/demo">
 
-  <process id="demoProcess" name="Demo Process" isExecutable="true">
+  <!-- historyTimeToLive is required as of Camunda 7.23 (ENGINE-12018) -
+       deployment is rejected without it, whereas 7.19 didn't enforce this.
+       180 days is an arbitrary demo value; production processes should
+       set this deliberately per their own retention requirements. -->
+  <process id="demoProcess" name="Demo Process" isExecutable="true" camunda:historyTimeToLive="180">
     <startEvent id="start" name="Start" />
 
     <sequenceFlow id="flow1" sourceRef="start" targetRef="externalTask" />

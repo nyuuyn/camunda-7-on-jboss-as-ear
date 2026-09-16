@@ -106,12 +106,19 @@ conflict above) that only surfaced this way, never at build/package time.
 
 ## WildFly as an EAP 7.4 stand-in (tests, CI)
 
-`integration-test/` and CI run against
-`quay.io/wildfly/wildfly:26.1.3.Final-jdk11` — EAP 7.4's freely-available
-upstream, same `javax.*`-generation codebase — because real EAP images
-need a `registry.redhat.io` subscription. The base image is a Dockerfile
-`ARG` (`BASE_IMAGE`), swappable for a real EAP image by anyone with
-registry access.
+`integration-test/` and CI run against WildFly 26.1.3.Final — EAP 7.4's
+freely-available upstream, same `javax.*`-generation codebase — because
+real EAP images need a `registry.redhat.io` subscription. quay.io never
+published a `26.1.3.Final-jdk17` tag (its jdk17 tags only start at
+WildFly 28/Jakarta EE 10, outside this project's `javax.*` target — see
+`docs/arc42/02-architecture-constraints.md`), so the Dockerfile's
+`wildfly-jdk17` stage copies `$JBOSS_HOME` out of quay.io's jdk11-tagged
+image (a normal, fast registry pull) onto a JDK 17 base, instead of
+downloading the WildFly release tarball from GitHub Releases directly —
+that CDN throttled to ~20 KB/s in testing, turning a ~200MB download into
+hours. The base image is a Dockerfile `ARG` (`BASE_IMAGE`), swappable for
+a real EAP image by anyone with registry access — doing so skips the
+`wildfly-jdk17` build stage entirely.
 
 **Known, accepted risk**: WildFly and EAP are close but not identical
 (Red Hat patches, different defaults, different release cadence). In
@@ -132,7 +139,7 @@ Dockerfile/test harness — the caching structure is intentional.
 
 ## CI
 
-`.github/workflows/ci.yml`, `ubuntu-latest`: checkout → JDK 11 setup →
+`.github/workflows/ci.yml`, `ubuntu-latest`: checkout → JDK 17 setup →
 `mvn -B verify`. GitHub-hosted runners have Docker preinstalled, so the
 Testcontainers-based integration tests need no extra CI setup.
 

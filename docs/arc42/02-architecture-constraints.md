@@ -6,9 +6,9 @@
 
 | Constraint | Reason |
 |---|---|
-| **JBoss EAP 7.4** as the nominal target (Jakarta EE 8, `javax.*` namespace) | Fixes the Camunda version range to 7.19-7.22 (the last line built against `javax.*`; 7.19+ also ships parallel `-jakarta` artifacts for WildFly 27+/Jakarta EE 10, which are a different, incompatible target - see [ADR: WildFly as a stand-in for EAP](09-architecture-decisions.md)). |
+| **JBoss EAP 7.4** as the nominal target (Jakarta EE 8, `javax.*` namespace) | Fixes the Camunda version range to 7.19-7.23 (the last line built against `javax.*`; 7.19+ also ships parallel `-jakarta` artifacts for WildFly 27+/Jakarta EE 10, which are a different, incompatible target - see [ADR: WildFly as a stand-in for EAP](09-architecture-decisions.md)). |
 | **No Camunda WildFly Subsystem** | This is the project's core premise, not an incidental limitation - see [Introduction and Goals](01-introduction-and-goals.md). Ruling it out forces every piece of container integration (thread pool, transactions, datasource, REST) to be assembled by hand. |
-| **Java 11** | The JDK version JBoss EAP 7.4 targets. |
+| **Java 17** | Officially supported by JBoss EAP 7.4 since a later cumulative patch; targeting it keeps the `javax.*` namespace (unlike bumping WildFly itself past 26) while building/running on a current JDK. |
 | **Maven multi-module build** | Matches how a real EAR project is structured and built; also required for `maven-ear-plugin` to assemble the final artifact. |
 | **Real EAP images are not freely available** | `registry.redhat.io` requires a Red Hat subscription. Automated tests and CI therefore run against WildFly 26.1.3.Final (EAP 7.4's upstream, same `javax.*` codebase generation) rather than real EAP - see [Risks and Technical Debt](11-risks-and-technical-debt.md) for what that leaves unverified. |
 | **Docker required for integration tests** | Testcontainers needs a Docker daemon. Kept strictly opt-in (`mvn verify`, not `mvn package`) so the base build has no such requirement - see [Quality Requirements](10-quality-requirements.md). |

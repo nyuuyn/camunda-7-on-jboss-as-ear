@@ -131,9 +131,12 @@ themselves - the original motivation for making this change.
 subscription; this project needs to be buildable and testable by anyone.
 
 **Decision.** [Integration tests](../../integration-test) and CI run
-against `quay.io/wildfly/wildfly:26.1.3.Final-jdk11` - EAP 7.4's freely
-available upstream, same `javax.*` codebase generation. The base image is
-a Dockerfile `ARG`, swappable for a real EAP image by anyone with access.
+against WildFly 26.1.3.Final - EAP 7.4's freely available upstream, same
+`javax.*` codebase generation - with `$JBOSS_HOME` copied from quay.io's
+jdk11-tagged image onto a JDK 17 base (quay.io never published a
+`26.1.3.Final-jdk17` tag; its jdk17 tags only start at WildFly
+28/Jakarta EE 10, outside this project's target). The base image is a
+Dockerfile `ARG`, swappable for a real EAP image by anyone with access.
 
 **Consequences.** See [Risks and Technical Debt](11-risks-and-technical-debt.md) -
 this is real, un-eliminated risk: WildFly and EAP are close but not
