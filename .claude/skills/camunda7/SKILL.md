@@ -48,6 +48,18 @@ pattern) — that was tried and deliberately abandoned (see ADR-3 in
 `09-architecture-decisions.md`) because it couples the process application
 to the engine's classloader.
 
+**`camunda-web-ui` (Cockpit/Tasklist/Admin) is the one deliberate
+exception** — it needs direct Java-API access to the running
+`ProcessEngine` (`ProcessEngines.getProcessEngines()`), so REST-only
+doesn't apply to it. It's still its own EAR subdeployment, but it resolves
+the shared engine through `ear/lib/camunda-engine.jar` (visible to every
+subdeployment regardless of `ear-subdeployments-isolated`) instead of
+REST — see ADR-9 and
+[Building Block View §5.4](../../../docs/arc42/05-building-block-view.md).
+Don't use this module as a precedent for a new process/worker module;
+it's justified specifically because Cockpit/Tasklist/Admin have no
+REST-only integration mode.
+
 ## Adding/changing engine configuration
 
 - Edit `camunda.cfg.xml` as plain `<bean>`/`<property>` XML. Both

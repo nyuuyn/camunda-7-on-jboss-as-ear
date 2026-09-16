@@ -159,3 +159,39 @@ EAR, at the cost of needing to get provider/listener wiring right by hand
 provider exclusion) - all three were found by deploying and reading the
 resulting errors, not by reading documentation. See
 [Crosscutting Concepts §8.4](08-crosscutting-concepts.md).
+
+---
+
+### ADR-9: Cockpit/Tasklist/Admin as a separate WAR module, sharing the engine via `ear/lib/`
+
+**Context.** Cockpit, Tasklist, and Admin weren't deployed at all
+originally (REST-API-only scope). Adding them raises a real question this
+project's other modules don't: they need direct Java-API access to the
+running `ProcessEngine` (`ProcessEngines.getProcessEngines()`), not just
+REST - so the `process-application` pattern (ADR-3, zero compile-time
+dependency, REST-only) doesn't apply to them the way it might seem to.
+
+**Decision.** A new `camunda-web-ui` module (`war` packaging), built by
+overlaying Camunda's prebuilt `org.camunda.bpm.webapp:camunda-webapp` WAR
+with no customization - deployed as its own EAR subdeployment, same as
+`camunda-engine.war` and `process-application.jar`.
+`ear-subdeployments-isolated=true` still applies, but that only blocks
+subdeployments from seeing *each other's own* classes; `ear/lib/camunda-engine.jar`
+stays visible to every subdeployment regardless, and `camunda-webapp`'s
+own `WEB-INF/lib` deliberately doesn't bundle a second copy of
+`camunda-engine.jar` (confirmed by inspecting the published artifact
+directly). So `camunda-web-ui.war`'s `ProcessEnginesFilter` resolves
+against the exact same shared `ProcessEngines` class, and therefore the
+same registered engine, that `CamundaEngineBootstrap` in
+`camunda-engine.war` initialized - without any explicit
+`jboss-deployment-structure.xml` module dependency between the two WARs.
+
+**Consequences.** `camunda-web-ui` needs the same
+`org.jboss.resteasy.resteasy-json-binding-provider` exclusion as
+`camunda-engine.war` (it embeds its own RESTEasy + Jackson JAX-RS servlets
+the same way). Verified with a real login against the seeded `admin` user
+through the webapp's own CSRF-protected endpoint
+(`integration-test`'s `webUiLoginWorksAgainstSharedEngine`), not just "the
+WAR deployed without errors" - see
+[Crosscutting Concepts §8.5](08-crosscutting-concepts.md) and
+[Building Block View §5.4](05-building-block-view.md).

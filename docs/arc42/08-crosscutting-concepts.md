@@ -77,6 +77,17 @@ system would use. `ear/lib/` (the shared engine/REST/client jars) stays
 visible to both subdeployments regardless of the isolation setting; only
 cross-subdeployment class visibility is affected.
 
+**`camunda-web-ui` is a deliberate exception to this pattern, not a
+violation of it.** Cockpit/Tasklist/Admin need direct Java-API access to
+the running `ProcessEngine` (`ProcessEngines.getProcessEngines()`) - a
+REST-only integration isn't an option for them the way it is for a process
+application. It's still its own genuinely separate EAR subdeployment
+(same isolation setting applies), but it resolves the engine through
+`ear/lib/camunda-engine.jar` - the same shared-library visibility
+`process-application` deliberately doesn't rely on - rather than a REST
+call. See [Building Block View §5.4](05-building-block-view.md) for how
+that resolves without any explicit module dependency between the two WARs.
+
 ## 8.6 Testing Philosophy: Verify, Don't Assume
 
 Documentation and web research about how Camunda 7 interacts with plain

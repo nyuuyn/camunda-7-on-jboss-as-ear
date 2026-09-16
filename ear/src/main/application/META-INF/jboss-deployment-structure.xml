@@ -5,8 +5,11 @@
   HTTP - so there's no need for it to share a classloader with it. lib/
   (camunda-engine, camunda-external-task-client, etc.) stays visible to
   all subdeployments regardless of this setting; isolation only affects
-  whether the subdeployments can see each other's own classes directly,
-  which neither needs to.
+  whether the subdeployments can see each other's own classes directly.
+  camunda-web-ui.war relies on exactly that shared-lib visibility (not an
+  explicit module dependency between subdeployments) to see the same
+  ProcessEngines registry camunda-engine.war populates - see
+  camunda-web-ui/pom.xml.
 -->
 <jboss-deployment-structure xmlns="urn:jboss:deployment-structure:1.2">
   <ear-subdeployments-isolated>true</ear-subdeployments-isolated>
@@ -20,6 +23,15 @@
            Client's date parsing (found by deploying and reading the raw
            fetchAndLock response). Excluding it forces RESTEasy to use
            the Jackson provider camunda-engine-rest-core actually expects. -->
+      <module name="org.jboss.resteasy.resteasy-json-binding-provider"/>
+    </exclusions>
+  </sub-deployment>
+  <sub-deployment name="camunda-web-ui.war">
+    <exclusions>
+      <!-- Same JSON-B-vs-Jackson conflict as camunda-engine.war above -
+           camunda-web-ui.war embeds its own RESTEasy + Jackson JAX-RS
+           servlets (api/engine, api/cockpit, api/admin, api/tasklist)
+           the same way. -->
       <module name="org.jboss.resteasy.resteasy-json-binding-provider"/>
     </exclusions>
   </sub-deployment>

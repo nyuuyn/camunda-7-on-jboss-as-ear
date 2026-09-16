@@ -25,7 +25,11 @@ camunda-engine (war)         -- the process engine, bootstrapped in-EAR,
 process-application (ejb)    -- a demo BPMN process, deployed and driven
                                  entirely over REST - no compile-time
                                  dependency on camunda-engine
-ear                          -- assembles both into one deployable EAR
+camunda-web-ui (war)         -- Cockpit/Tasklist/Admin, overlaying
+                                 Camunda's prebuilt webapp WAR; a separate
+                                 subdeployment that shares the engine via
+                                 ear/lib/, not REST
+ear                          -- assembles all three into one deployable EAR
 integration-test             -- Testcontainers suite proving the above
 server-config/                -- one-time JBoss datasource setup
 docs/arc42/                  -- full architecture documentation

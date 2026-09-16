@@ -60,6 +60,10 @@ class CamundaEarIT {
         return "http://" + jboss.getHost() + ":" + jboss.getMappedPort(8080) + "/camunda-engine/engine-rest";
     }
 
+    private static String webUiBaseUrl() {
+        return "http://" + jboss.getHost() + ":" + jboss.getMappedPort(8080) + "/camunda-web-ui";
+    }
+
     @Test
     void demoProcessCompletesEndToEnd() throws Exception {
         waitForProcessDefinitionDeployed();
@@ -97,6 +101,65 @@ class CamundaEarIT {
         assertTrue(adminAuthorizations.contains("\"groupId\":\"camunda-admin\""),
                 "expected IdentityBootstrap to have granted the camunda-admin group an authorization, got: "
                         + adminAuthorizations);
+    }
+
+    /**
+     * camunda-web-ui.war (Cockpit/Tasklist/Admin) is a separate EAR
+     * subdeployment from camunda-engine.war - ear-subdeployments-isolated
+     * is true, so it can't see camunda-engine.war's own classes directly.
+     * It relies instead on ear/lib/camunda-engine.jar being visible to
+     * every subdeployment regardless of that isolation setting (see
+     * camunda-web-ui/pom.xml) to resolve the same ProcessEngines registry
+     * CamundaEngineBootstrap populated. This test is the actual proof of
+     * that, not an assumption: a real login against the seeded admin user,
+     * through the webapp's own CSRF-protected REST endpoint, asserting the
+     * response names the "default" engine's authorized apps - impossible
+     * unless this webapp is looking at the real, running, shared engine.
+     */
+    @Test
+    void webUiLoginWorksAgainstSharedEngine() throws Exception {
+        HttpRequest welcomePage = HttpRequest.newBuilder()
+                .uri(URI.create(webUiBaseUrl() + "/app/welcome/default/"))
+                .GET()
+                .build();
+        HttpResponse<String> welcomeResponse = HTTP_CLIENT.send(welcomePage, HttpResponse.BodyHandlers.ofString());
+        // CsrfPreventionFilter ties the token to the session (JSESSIONID),
+        // not just the XSRF-TOKEN cookie in isolation - dropping the
+        // session cookie on the follow-up request makes the server treat
+        // the resent token as belonging to a different (nonexistent)
+        // session and reject it as invalid, even though the token value
+        // itself is correct. So every cookie the welcome page set has to
+        // be replayed, not just the one this request actually reads.
+        java.util.List<String> setCookies = welcomeResponse.headers().allValues("Set-Cookie");
+        String cookieHeader = setCookies.stream()
+                .map(cookie -> cookie.split(";", 2)[0])
+                .reduce((a, b) -> a + "; " + b)
+                .orElseThrow(() -> new AssertionError("No cookies in welcome page response ("
+                        + welcomeResponse.statusCode() + "): " + welcomeResponse.headers()));
+        String xsrfToken = setCookies.stream()
+                .map(cookie -> cookie.split(";", 2)[0])
+                .filter(cookie -> cookie.startsWith("XSRF-TOKEN="))
+                .findFirst()
+                .map(cookie -> cookie.substring("XSRF-TOKEN=".length()))
+                .orElseThrow(() -> new AssertionError("No XSRF-TOKEN cookie in welcome page response ("
+                        + welcomeResponse.statusCode() + "): " + welcomeResponse.headers()));
+
+        HttpRequest login = HttpRequest.newBuilder()
+                .uri(URI.create(webUiBaseUrl() + "/api/admin/auth/user/default/login/welcome"))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader)
+                .header("X-XSRF-TOKEN", xsrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString("username=admin&password=admin"))
+                .build();
+        HttpResponse<String> loginResponse = HTTP_CLIENT.send(login, HttpResponse.BodyHandlers.ofString());
+
+        assertTrue(loginResponse.statusCode() / 100 == 2,
+                "expected the seeded admin user to log into camunda-web-ui, got HTTP "
+                        + loginResponse.statusCode() + ": " + loginResponse.body());
+        assertTrue(loginResponse.body().contains("\"cockpit\""),
+                "expected admin to be authorized for cockpit (via IdentityBootstrap's camunda-admin group "
+                        + "APPLICATION grant), got: " + loginResponse.body());
     }
 
     private void assertUserExists(String userId) {

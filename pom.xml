@@ -17,16 +17,20 @@
     and its embedded REST API; process-application deploys the demo BPMN to
     it over REST at startup and handles its only task over the External
     Task REST API. process-application has no compile-time dependency on
-    camunda-engine. The engine's Job Executor thread pool comes from
-    JBoss's built-in ManagedExecutorService (java:jboss/ee/concurrency/executor/default)
-    instead of a thread pool it manages itself. The datasource is
-    configured on the server rather than bundled in the EAR - see
-    server-config/.
+    camunda-engine. camunda-web-ui (Cockpit/Tasklist/Admin, overlaying
+    Camunda's prebuilt webapp WAR) is a separate subdeployment too, but
+    shares the engine via ear/lib/ rather than REST, since those UIs need
+    direct Java-API access to the running ProcessEngine. The engine's Job
+    Executor thread pool comes from JBoss's built-in ManagedExecutorService
+    (java:jboss/ee/concurrency/executor/default) instead of a thread pool
+    it manages itself. The datasource is configured on the server rather
+    than bundled in the EAR - see server-config/.
   </description>
 
   <modules>
     <module>camunda-engine</module>
     <module>process-application</module>
+    <module>camunda-web-ui</module>
     <module>ear</module>
     <module>integration-test</module>
   </modules>
@@ -91,6 +95,19 @@
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-engine-rest-core</artifactId>
         <version>${camunda.version}</version>
+      </dependency>
+      <!-- Cockpit/Tasklist/Admin, overlaid into camunda-web-ui.war. Its own
+           WEB-INF/lib (camunda-engine-rest-core, Jackson, etc.) ships
+           self-contained inside this WAR artifact - camunda-engine.jar
+           itself is deliberately NOT in there (confirmed by inspecting the
+           artifact directly), so it resolves the shared ProcessEngine from
+           ear/lib/ the same way camunda-engine.war's own bootstrap does,
+           rather than bundling a second, disconnected engine instance. -->
+      <dependency>
+        <groupId>org.camunda.bpm.webapp</groupId>
+        <artifactId>camunda-webapp</artifactId>
+        <version>${camunda.version}</version>
+        <type>war</type>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.jaxrs</groupId>
