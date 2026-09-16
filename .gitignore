@@ -1,2 +1,14 @@
 target/
 *.class
+
+# IntelliJ's own web-facet scratch directory for WAR-overlay modules
+# (camunda-web-ui's camunda-webapp overlay) - created at the module root
+# when the IDE imports the module, not by Maven itself: a plain CLI
+# `mvn package` never creates this directory (maven-war-plugin's own
+# overlay unpacking already lands under target/war/work by default,
+# which target/ above already covers). See .idea/misc.xml's
+# FrameworkDetectionExcludesConfiguration entry for the same path.
+overlays/
+
+# IDE project files - machine/user-specific, shouldn't be shared via git.
+.idea/
