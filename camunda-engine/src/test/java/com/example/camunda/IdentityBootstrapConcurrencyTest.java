@@ -22,18 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Regression test for issue #1: in a JBoss 7.4 domain-controller
- * environment, the Domain Controller deploys this EAR to every node in a
- * server group in parallel, so IdentityBootstrap.run() executes concurrently
- * against the *same* database from several independent JVMs at once.
- *
- * A single-JVM, single-database ProcessEngine can't reproduce "several
- * JVMs," but the part of the bug that actually matters - several
- * connections racing a check-then-insert against the same unique-constrained
- * rows - is exactly what several threads sharing one in-memory H2 database
- * reproduce. If IdentityBootstrap didn't tolerate the resulting
- * unique-constraint violations, this test would fail with a
- * ProcessEngineException instead of completing.
+ * Regression test for the domain-controller concurrent-bootstrap race - see
+ * docs/arc42/08-crosscutting-concepts.md §8.7. Several threads racing
+ * IdentityBootstrap.run() against one shared in-memory H2 database stand in
+ * for several nodes racing it against one real database.
  */
 class IdentityBootstrapConcurrencyTest {
 

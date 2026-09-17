@@ -20,20 +20,12 @@ jobs:
           java-version: '17'
           cache: maven
 
-      # "mvn verify" builds every module (camunda-engine, process-application,
-      # ear) and then runs integration-test's Testcontainers-based tests
-      # (CamundaEarIT): builds a WildFly image, deploys the EAR onto a real
-      # container, and drives the demo process end-to-end over REST. Docker
-      # is preinstalled and running on GitHub-hosted ubuntu-latest runners,
-      # so Testcontainers needs no extra setup.
+      # Builds every module and runs the Testcontainers suite - see arc42 §10.
       - name: Build and run tests
         run: mvn -B verify
 
-      # Separate from the integration-test image above: this builds the
-      # top-level Dockerfile (the one covered in README.md's "Run with
-      # Docker" section), which does its own "mvn package" from scratch
-      # rather than reusing what "mvn verify" just produced - so this is
-      # the only thing in CI that actually exercises that Dockerfile.
+      # Exercises the top-level Dockerfile (README's "Run with Docker"), separately
+      # from the integration-test image above - see arc42 §7.4.
       - name: Build standalone Docker image
         run: docker build -t camunda-demo .
 

@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Makes this WAR a recognized CDI bean archive - required for
-  CamundaEngineBootstrap's @Observes @Initialized(ApplicationScoped.class)
-  to actually fire. WildFly's Weld would likely pick the bean up via
-  "implicit bean archive" rules even without this file (a bean-defining
-  annotation like @ApplicationScoped is enough per the CDI spec), but this
-  project has consistently preferred being explicit over relying on
-  container-default discovery behavior.
--->
+<!-- Makes this WAR a recognized CDI bean archive - required for CamundaEngineBootstrap to fire. See ADR-6. -->
 <beans xmlns="http://xmlns.jcp.org/xml/ns/javaee"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee

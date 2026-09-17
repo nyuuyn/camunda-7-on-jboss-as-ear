@@ -8,18 +8,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Embeds camunda-engine-rest into this WAR's own JAX-RS deployment
- * (RESTEasy, built into JBoss EAP) rather than deploying Camunda's
- * separate engine-rest.war. Exposes the full REST API - deployments,
- * process definitions/instances, external tasks, etc. - under
- * /engine-rest, e.g. POST /camunda-engine/engine-rest/deployment/create.
- *
- * Which ProcessEngine the REST resources operate on is resolved by
- * ContainerManagedProcessEngineProvider (see
- * META-INF/services/org.camunda.bpm.engine.rest.spi.ProcessEngineProvider),
- * which falls back to the plain org.camunda.bpm.engine.ProcessEngines
- * registry when there's no subsystem/BpmPlatform involved - exactly our
- * situation, since the engine is bootstrapped from camunda.cfg.xml.
+ * Embeds camunda-engine-rest into this WAR's own JAX-RS deployment instead
+ * of deploying Camunda's separate engine-rest.war. See ADR-8 in
+ * docs/arc42/09-architecture-decisions.md and
+ * docs/arc42/08-crosscutting-concepts.md §8.4.
  */
 @ApplicationPath("/engine-rest")
 public class CamundaRestApplication extends Application {

@@ -6,19 +6,9 @@
 
   <display-name>camunda-demo-web</display-name>
 
-  <!-- com.example.camunda.CamundaEngineBootstrap bootstraps the engine via
-       CDI (@Observes @Initialized(ApplicationScoped.class)), not a
-       listener declared here - see that class and WEB-INF/beans.xml. -->
+  <!-- Engine bootstrap itself is CDI-driven (CamundaEngineBootstrap), not a listener here. -->
 
-  <!--
-    Required by camunda-engine-rest for the External Task REST API's
-    long-polling fetchAndLock: without it,
-    FetchAndLockContextListener.getFetchAndLockHandler() returns null and
-    every POST /external-task/fetchAndLock throws a server-side NPE
-    (found by actually deploying to a container and reading the resulting
-    500 errors - not documented anywhere I saw while researching the REST
-    embedding setup).
-  -->
+  <!-- Required by the External Task REST API's fetchAndLock long-polling - see arc42 §8.4 and §11.1. -->
   <listener>
     <listener-class>org.camunda.bpm.engine.rest.impl.FetchAndLockContextListener</listener-class>
   </listener>

@@ -18,18 +18,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Deploys demo-process.bpmn to the engine over REST (POST
- * /deployment/create) instead of via a process archive / @ProcessApplication
- * bundled in the same module as the engine. This module has no compile-time
- * dependency on camunda-engine at all - it only ever talks to the engine
- * over HTTP, which is what actually keeps the process application decoupled
- * from the engine module rather than just organizationally separate.
- *
- * Runs on JBoss's ManagedExecutorService (not a raw Thread) so this stays
- * consistent with the rest of the project's container-thread-pool policy,
- * and retries with backoff since there's no ordering guarantee that
- * camunda-engine's REST API is already up when this singleton starts (see
- * the top-level README's ordering caveat).
+ * Deploys demo-process.bpmn to the engine over REST instead of via a
+ * process archive bundled with the engine, keeping this module free of any
+ * compile-time dependency on camunda-engine. Retries with backoff since
+ * there's no startup ordering guarantee against the engine's REST API. See
+ * ADR-3 in docs/arc42/09-architecture-decisions.md and
+ * docs/arc42/06-runtime-view.md §6.1.
  */
 @Singleton
 @Startup

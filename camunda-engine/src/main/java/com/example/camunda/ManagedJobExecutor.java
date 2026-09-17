@@ -11,23 +11,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.logging.Logger;
 
 /**
- * Hands job execution off to a container-managed ExecutorService (JBoss
- * EAP's default ManagedExecutorService) instead of the ThreadPoolExecutor
- * that JobExecutor's default subclass (ThreadPoolJobExecutor) would create
- * and manage itself. Pure JEE (javax.naming, java.util.concurrent) - no
- * Spring types, so this also works standing alone if wired up from plain
- * Java code instead of camunda.cfg.xml.
- *
- * Looks the executor up itself (rather than taking it as a constructor
- * argument) so it can be built from camunda.cfg.xml as a plain
- * <bean class="..." init-method="init"> with just a JNDI name string
- * property - no Java object needs to be resolved and injected by whatever
- * is parsing that XML.
- *
- * The job-acquisition polling thread (started/stopped below) remains a
- * single dedicated background Thread managed by the engine itself - the
- * same is true even under Camunda's official WildFly subsystem, which only
- * containerizes the *execution* thread pool, not the acquisition loop.
+ * Hands job execution off to a container-managed ExecutorService instead
+ * of a self-managed ThreadPoolExecutor. See ADR-2 in
+ * docs/arc42/09-architecture-decisions.md and
+ * docs/arc42/08-crosscutting-concepts.md §8.1.
  */
 public class ManagedJobExecutor extends JobExecutor {
 

@@ -16,18 +16,7 @@
   <name>ear</name>
   <description>
     Assembles camunda-engine, process-application, and camunda-web-ui into
-    a single EAR for convenience of deployment - they remain logically
-    decoupled where that's the point (process-application only ever talks
-    to camunda-engine over HTTP, never shares its classes) even though they
-    ship together here. camunda-web-ui is different: it's Cockpit/
-    Tasklist/Admin, which need direct Java-API access to the running
-    ProcessEngine, so it deliberately relies on the shared engine classes
-    in ear/lib/ rather than staying REST-only. The engine jars needed by
-    camunda-engine, plus camunda-engine-rest and its Jackson provider, plus
-    camunda-external-task-client, are bundled here (ear/lib/). The
-    datasource itself is bundled too - camunda-engine declares it via
-    @DataSourceDefinition and ships its JDBC driver as an ordinary runtime
-    dependency in its own WEB-INF/lib, so no server-side setup is needed.
+    a single deployable EAR. See docs/arc42/05-building-block-view.md.
   </description>
 
   <dependencies>
@@ -70,9 +59,7 @@
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-external-task-client</artifactId>
     </dependency>
-    <!-- Bundled into ear/lib/ - camunda-external-task-client's built-in
-         XML DataFormatProvider needs jakarta.xml.bind.* at runtime (see
-         root pom.xml). Neither the JDK nor WildFly supplies this. -->
+    <!-- Needed at runtime by camunda-external-task-client - see root pom.xml. -->
     <dependency>
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>

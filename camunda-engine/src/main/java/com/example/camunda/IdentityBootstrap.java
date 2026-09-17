@@ -22,29 +22,9 @@ import java.util.logging.Logger;
 
 /**
  * Creates a handful of example users/groups/authorizations the first time
- * the engine boots (see issue #1), via IdentityService/AuthorizationService
- * the way a real deployment would.
- *
- * In a JBoss 7.4 domain-controller environment, the Domain Controller pushes
- * this EAR to every node in a server group in parallel, so several nodes run
- * this exact bootstrap at roughly the same time, each in its own JVM/
- * transaction, with no lock between them. A plain "check if it exists, then
- * create it" is therefore not atomic: two nodes can both see "not found" and
- * both insert, and the loser's insert fails against the database's own
- * unique constraint (ACT_ID_USER/ACT_ID_GROUP primary keys, the unique index
- * backing ACT_RU_AUTHORIZATION) - the "Authorization must be unique"
- * exception from issue #1. There is no in-process lock that reaches across
- * nodes, so rather than trying to prevent that race, every create below
- * treats a unique-constraint violation as "another node already created
- * this concurrently, nothing left to do" instead of a fatal deployment
- * error - see isConcurrentCreateConflict below for how that's detected.
- *
- * <p>A {@code @Dependent} CDI bean rather than a static utility: run() is
- * {@code @Transactional}, and that annotation only does anything when the
- * container can intercept the call - which requires a non-final, non-static
- * method on an actual (proxyable) bean, invoked through an injected
- * reference rather than a direct static call. See CamundaEngineBootstrap for
- * the {@code @Inject} call site.
+ * the engine boots, tolerating the concurrent-bootstrap race that occurs
+ * when a domain controller starts this EAR on several nodes at once. See
+ * docs/arc42/08-crosscutting-concepts.md §8.7 for the full rationale.
  */
 @Dependent
 class IdentityBootstrap {
@@ -71,10 +51,8 @@ class IdentityBootstrap {
         createUser(identityService, USER_SUPPORT, "Support", "support@example.com", GROUP_SUPPORT);
         createUser(identityService, USER_READONLY, "Read Only", "readonly@example.com", GROUP_READONLY);
 
-        // camunda-admin already bypasses authorization checks entirely (see
-        // DbAuthorizationManager#isCamundaAdmin) - this grant only makes the
-        // admin webapps (Cockpit/Tasklist/Admin) list themselves as
-        // accessible, same as Camunda's own "create initial admin" wizard.
+        // camunda-admin already bypasses authorization checks (DbAuthorizationManager#isCamundaAdmin);
+        // this grant just makes the admin webapps list themselves as accessible.
         grantGroupAuthorization(authorizationService, Groups.CAMUNDA_ADMIN, Resources.APPLICATION, Permissions.ALL);
         grantGroupAuthorization(authorizationService, GROUP_SUPPORT, Resources.PROCESS_INSTANCE,
                 Permissions.READ, ProcessInstancePermissions.RETRY_JOB);
@@ -146,17 +124,10 @@ class IdentityBootstrap {
     }
 
     /**
-     * IdentityService's own saveGroup/saveUser/saveTenant already probe for
-     * exactly this (see their use of the same ExceptionUtil method) and
-     * rethrow as BadUserRequestException("... already exists", cause) -
-     * catching just that message would miss createMembership/
-     * saveAuthorization, which have no such wrapping and let the underlying
-     * ProcessEngineException (wrapping the DB's unique-constraint violation)
-     * propagate as-is. Walking the cause chain and asking the engine's own
-     * ExceptionUtil at each ProcessEngineException handles both shapes
-     * uniformly, and stays correct across the DB vendors this project might
-     * run against (H2, PostgreSQL, MySQL, ...) since it's the same check the
-     * engine itself relies on.
+     * Walks the cause chain rather than matching on exception type/message
+     * so it catches createMembership/saveAuthorization too, not just the
+     * saveUser/saveGroup calls IdentityService itself already probes for.
+     * See docs/arc42/08-crosscutting-concepts.md §8.7.
      */
     private static boolean isConcurrentCreateConflict(Throwable t) {
         for (Throwable cause = t; cause != null; cause = cause.getCause()) {

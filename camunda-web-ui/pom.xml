@@ -16,24 +16,8 @@
   <name>camunda-web-ui</name>
   <description>
     Cockpit, Tasklist, and Admin - Camunda's prebuilt camunda-webapp WAR,
-    overlaid as-is (no local src/main/webapp of our own; everything comes
-    from the overlay unless a specific file needs overriding). Deployed as
-    its own EAR subdeployment, genuinely separate from camunda-engine.war,
-    the way process-application is - but unlike process-application, this
-    one isn't decoupled from the engine: Cockpit/Tasklist/Admin need direct
-    Java-API access to the running ProcessEngine (via
-    org.camunda.bpm.engine.ProcessEngines), not just REST. That access
-    comes for free without any explicit jboss-deployment-structure.xml
-    module dependency between the two WARs: camunda-engine.jar itself
-    lives in ear/lib/ (shared across all subdeployments regardless of
-    ear-subdeployments-isolated - isolation only affects subdeployments
-    seeing each other's own classes, not the shared EAR library directory),
-    and camunda-webapp's own WEB-INF/lib deliberately does NOT bundle a
-    second copy of camunda-engine.jar (confirmed by inspecting the
-    published artifact) - so this WAR's ProcessEngines lookup resolves
-    against the exact same shared class, and therefore the exact same
-    registered engine, that CamundaEngineBootstrap in camunda-engine.war
-    initialized.
+    overlaid as-is. See ADR-9 and docs/arc42/05-building-block-view.md §5.4
+    for how it shares the engine via ear/lib/ instead of REST.
   </description>
 
   <dependencies>

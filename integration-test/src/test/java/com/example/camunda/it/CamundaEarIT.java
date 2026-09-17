@@ -21,22 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Boots a WildFly container (see docker/Dockerfile - a freely-pullable
- * stand-in for JBoss EAP 7.4; the ProcessEngine datasource is declared
- * inside the EAR itself via @DataSourceDefinition, not baked into the
- * image), deploys ear/target/camunda-demo.ear onto it, and drives the demo
- * process end-to-end purely over REST/docker-exec - the same black-box
- * perspective an operator would have, not by sharing any classes with the
- * deployed app.
- *
- * Every endpoint, log message, and CLI output format asserted on below was
- * confirmed against a real container run during development, not guessed
- * from documentation - including two real bugs this process caught before
- * they were ever written down as "known limitations": a nonexistent
- * Camunda class referenced in web.xml, and WildFly's built-in JSON-B
- * provider silently outcompeting Jackson and breaking the External Task
- * Client's date parsing. Both fixes live in camunda-engine/ear now; see
- * their commit history / comments for details.
+ * Boots a WildFly container (see docker/Dockerfile, ADR-7), deploys
+ * ear/target/camunda-demo.ear onto it, and drives the demo process
+ * end-to-end purely over REST/docker-exec - the same black-box perspective
+ * an operator would have. See docs/arc42/10-quality-requirements.md and
+ * docs/arc42/11-risks-and-technical-debt.md §11.1 for what's checked here
+ * and why.
  */
 @Testcontainers
 class CamundaEarIT {
@@ -82,14 +72,9 @@ class CamundaEarIT {
 
     @Test
     void identityBootstrapCreatesExampleUsersAndGroups() throws Exception {
-        // IdentityBootstrap.run() executes synchronously inside
-        // CamundaEngineBootstrap.onStart(), before the webapp finishes
-        // starting - and jboss's own Wait strategy above already blocks
-        // until /engine-rest/engine responds, which can't happen before
-        // that. So by the time we get here, bootstrap has already run;
-        // no extra polling needed (unlike the process-instance assertions
-        // below, which wait on DemoProcessDeployer's independent EJB retry
-        // loop).
+        // Runs synchronously before the webapp finishes starting, and the
+        // container Wait strategy above already blocks on /engine-rest/engine
+        // responding - so bootstrap has necessarily already run; no polling needed.
         assertUserExists("admin");
         assertUserExists("support");
         assertUserExists("readonly");
@@ -105,17 +90,9 @@ class CamundaEarIT {
     }
 
     /**
-     * camunda-web-ui.war (Cockpit/Tasklist/Admin) is a separate EAR
-     * subdeployment from camunda-engine.war - ear-subdeployments-isolated
-     * is true, so it can't see camunda-engine.war's own classes directly.
-     * It relies instead on ear/lib/camunda-engine.jar being visible to
-     * every subdeployment regardless of that isolation setting (see
-     * camunda-web-ui/pom.xml) to resolve the same ProcessEngines registry
-     * CamundaEngineBootstrap populated. This test is the actual proof of
-     * that, not an assumption: a real login against the seeded admin user,
-     * through the webapp's own CSRF-protected REST endpoint, asserting the
-     * response names the "default" engine's authorized apps - impossible
-     * unless this webapp is looking at the real, running, shared engine.
+     * Proves camunda-web-ui.war resolves the same shared ProcessEngine
+     * CamundaEngineBootstrap populated, via a real login against the seeded
+     * admin user. See docs/arc42/05-building-block-view.md §5.4.
      */
     @Test
     void webUiLoginWorksAgainstSharedEngine() throws Exception {
@@ -124,13 +101,8 @@ class CamundaEarIT {
                 .GET()
                 .build();
         HttpResponse<String> welcomeResponse = HTTP_CLIENT.send(welcomePage, HttpResponse.BodyHandlers.ofString());
-        // CsrfPreventionFilter ties the token to the session (JSESSIONID),
-        // not just the XSRF-TOKEN cookie in isolation - dropping the
-        // session cookie on the follow-up request makes the server treat
-        // the resent token as belonging to a different (nonexistent)
-        // session and reject it as invalid, even though the token value
-        // itself is correct. So every cookie the welcome page set has to
-        // be replayed, not just the one this request actually reads.
+        // CsrfPreventionFilter ties the XSRF token to the session (JSESSIONID),
+        // so every cookie from the welcome page must be replayed, not just XSRF-TOKEN.
         java.util.List<String> setCookies = welcomeResponse.headers().allValues("Set-Cookie");
         String cookieHeader = setCookies.stream()
                 .map(cookie -> cookie.split(";", 2)[0])
@@ -188,14 +160,9 @@ class CamundaEarIT {
                 body -> body.contains("\"endTime\":\"") && !body.contains("\"endTime\":null"),
                 "process instance " + processInstanceId + " to complete");
 
-        // completed-task-count is a supporting signal only - it's the whole
-        // shared pool's counter, and DemoProcessDeployer's own REST call
-        // also runs on it, so an increase alone doesn't prove *this*
-        // process instance's job ran there. The real proof is below:
-        // correlating the specific job id for *this* instance (from
-        // Camunda's own History REST API, independent of anything we log
-        // ourselves) with ManagedJobExecutor's thread-name log line for
-        // that exact job id.
+        // completed-task-count is a supporting signal only (the shared pool's
+        // counter, not proof this instance's job ran there); the real proof
+        // is the job-id/thread-name correlation below. See arc42 §11.4.
         int completedAfter = readCompletedTaskCount();
         assertTrue(completedAfter > completedBefore,
                 "expected java:jboss/ee/concurrency/executor/default's completed-task-count to increase "
@@ -209,17 +176,10 @@ class CamundaEarIT {
         assertTrue(jobRanOnManagedThread.matcher(logs).find(),
                 "expected a log line showing job " + jobId + " (the async continuation for process instance "
                         + processInstanceId + ", per /history/job-log) executing on an "
-                        + "EE-ManagedExecutorService-default thread - without this, the completed-task-count "
-                        + "increase above could just be coincidental unrelated activity on the shared pool "
-                        + "(e.g. DemoProcessDeployer's own REST call)");
+                        + "EE-ManagedExecutorService-default thread");
     }
 
-    /**
-     * Looks up the async-continuation job Camunda's engine itself created
-     * for this process instance (see demo-process.bpmn's
-     * camunda:asyncBefore) via the History REST API - an independent
-     * source of truth we don't control, unlike anything we log ourselves.
-     */
+    /** Looks up the async-continuation job for this instance via the History REST API. */
     private String fetchJobIdForProcessInstance(String processInstanceId) {
         String jobLog = get(baseUrl() + "/history/job-log?processInstanceId=" + processInstanceId);
         Matcher matcher = Pattern.compile("\"jobId\":\"([^\"]+)\"").matcher(jobLog);

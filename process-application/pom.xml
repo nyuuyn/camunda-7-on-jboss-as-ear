@@ -15,12 +15,8 @@
 
   <name>process-application</name>
   <description>
-    The whole demo, contained in one module: demo-process.bpmn,
-    DemoProcessDeployer (deploys it to the engine over REST at startup),
-    and DemoExternalTaskWorker (handles the process's only task, also over
-    REST). No compile-time dependency on camunda-engine at all - this
-    module only ever talks to the engine over HTTP, on purpose, so it stays
-    genuinely decoupled from it rather than just organizationally separate.
+    The demo BPMN process plus its REST-only deployer and worker - no
+    compile-time dependency on camunda-engine. See ADR-3.
   </description>
 
   <dependencies>

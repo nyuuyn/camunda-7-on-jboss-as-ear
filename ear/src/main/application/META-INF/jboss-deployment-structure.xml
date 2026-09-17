@@ -1,37 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ear-subdeployments-isolated=true: process-application is meant to be
-  genuinely decoupled from camunda-engine - it only ever talks to it over
-  HTTP - so there's no need for it to share a classloader with it. lib/
-  (camunda-engine, camunda-external-task-client, etc.) stays visible to
-  all subdeployments regardless of this setting; isolation only affects
-  whether the subdeployments can see each other's own classes directly.
-  camunda-web-ui.war relies on exactly that shared-lib visibility (not an
-  explicit module dependency between subdeployments) to see the same
-  ProcessEngines registry camunda-engine.war populates - see
-  camunda-web-ui/pom.xml.
+  ear-subdeployments-isolated=true enforces process-application's REST-only
+  decoupling from camunda-engine at the classloader level. See ADR-3 and
+  docs/arc42/08-crosscutting-concepts.md §8.5.
 -->
 <jboss-deployment-structure xmlns="urn:jboss:deployment-structure:1.2">
   <ear-subdeployments-isolated>true</ear-subdeployments-isolated>
   <sub-deployment name="camunda-engine.war">
     <exclusions>
-      <!-- WildFly's built-in RESTEasy JSON-B (Yasson) provider was
-           apparently winning over our bundled Jackson for
-           application/json responses: JSON-B's default temporal format
-           is ISO_ZONED_DATE_TIME, which is exactly the
-           "...Z[UTC]"-suffixed output that broke the External Task
-           Client's date parsing (found by deploying and reading the raw
-           fetchAndLock response). Excluding it forces RESTEasy to use
-           the Jackson provider camunda-engine-rest-core actually expects. -->
+      <!-- WildFly's built-in JSON-B provider otherwise wins over Jackson and
+           breaks date parsing - see arc42 §8.4 and §11.1. -->
       <module name="org.jboss.resteasy.resteasy-json-binding-provider"/>
     </exclusions>
   </sub-deployment>
   <sub-deployment name="camunda-web-ui.war">
     <exclusions>
-      <!-- Same JSON-B-vs-Jackson conflict as camunda-engine.war above -
-           camunda-web-ui.war embeds its own RESTEasy + Jackson JAX-RS
-           servlets (api/engine, api/cockpit, api/admin, api/tasklist)
-           the same way. -->
+      <!-- Same JSON-B-vs-Jackson conflict as camunda-engine.war above. -->
       <module name="org.jboss.resteasy.resteasy-json-binding-provider"/>
     </exclusions>
   </sub-deployment>

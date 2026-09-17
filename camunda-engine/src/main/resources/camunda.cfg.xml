@@ -1,27 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Must be named exactly "camunda.cfg.xml" and sit at the classpath root -
-  ProcessEnginesServletContextListener (declared in
-  camunda-engine/WEB-INF/web.xml) scans the classpath for files with that
-  exact name and builds one
-  ProcessEngine per file found, using the bean with id
-  "processEngineConfiguration" as the ProcessEngineConfiguration.
-
-  This is plain spring-beans.xsd XML (<bean>/<property>/init-method) -
-  that's the format camunda-engine's built-in classpath-scan bootstrap
-  parses internally regardless of whether the "camunda-engine-spring"
-  module is on the classpath. No org.springframework.* type appears
-  anywhere in this project's own Java code, and camunda-engine-spring is
-  not a dependency of this project.
+  Must be named exactly "camunda.cfg.xml" at the classpath root - Camunda's
+  built-in classpath-scan bootstrap finds it this way. See ADR-5 in
+  docs/arc42/09-architecture-decisions.md and
+  docs/arc42/08-crosscutting-concepts.md §8.3.
 -->
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-  <!-- Pure-JEE JobExecutor: submits job execution to JBoss's built-in
-       ManagedExecutorService instead of a self-managed thread pool. See
-       com.example.camunda.ManagedJobExecutor for the JNDI lookup. -->
+  <!-- Routes job execution to JBoss's ManagedExecutorService - see arc42 §8.1. -->
   <bean id="jobExecutor" class="com.example.camunda.ManagedJobExecutor" init-method="init">
     <property name="executorServiceJndiName" value="java:jboss/ee/concurrency/executor/default"/>
   </bean>
@@ -29,11 +18,7 @@
   <bean id="processEngineConfiguration" class="org.camunda.bpm.engine.impl.cfg.JtaProcessEngineConfiguration">
     <property name="processEngineName" value="default"/>
 
-    <!-- Both of these are plain JNDI name strings - JtaProcessEngineConfiguration
-         does its own javax.naming.InitialContext lookup internally, so this
-         is pure JEE regardless of the Spring-XML dialect wrapping it.
-         dataSourceJndiName matches the name on CamundaEngineBootstrap's
-         @DataSourceDefinition, which declares the datasource itself. -->
+    <!-- Matches the name on CamundaEngineBootstrap's @DataSourceDefinition. -->
     <property name="dataSourceJndiName" value="java:app/datasources/ProcessEngine"/>
     <property name="transactionManagerJndiName" value="java:/TransactionManager"/>
 

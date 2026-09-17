@@ -117,3 +117,39 @@ things, and to keep tightening assertions when a check turns out to prove
 less than it looks like it proves (e.g. correlating a specific job id with
 a specific thread-name log line, rather than checking each fact in
 isolation and assuming they're related).
+
+## 8.7 Concurrent Identity Bootstrap Across Domain Nodes
+
+`IdentityBootstrap` seeds example users/groups/authorizations the first
+time the engine boots. In a JBoss domain-controller environment, the
+Domain Controller pushes the EAR to every node in a server group in
+parallel, so several nodes can run this bootstrap at roughly the same
+time, each in its own JVM/transaction, with no lock between them. A plain
+"check if it exists, then create it" isn't atomic under that: two nodes
+can both see "not found" and both insert, and the loser's insert fails
+against the database's own unique constraint (`ACT_ID_USER`/`ACT_ID_GROUP`
+primary keys, the unique index backing `ACT_RU_AUTHORIZATION`).
+
+Rather than trying to prevent the race, every create in `IdentityBootstrap`
+treats a unique-constraint violation as "another node already created this
+concurrently" and swallows it, instead of failing deployment. Detection
+walks the exception's cause chain and asks the engine's own
+`ExceptionUtil.checkConstraintViolationException` at each
+`ProcessEngineException` - the same check `IdentityService`'s
+`saveUser`/`saveGroup` use internally, so it stays correct across the DB
+vendors this project might run against (H2, PostgreSQL, MySQL, ...) and
+also catches `createMembership`/`saveAuthorization`, which have no such
+wrapping of their own.
+
+`IdentityBootstrap` is a `@Dependent` CDI bean rather than a static
+utility because `run()` is `@Transactional`, and that annotation only does
+anything when the container can intercept the call - which requires a
+non-final, non-static method on a proxyable bean, invoked through an
+injected reference (see `CamundaEngineBootstrap`'s `@Inject` call site),
+not a direct static call.
+
+`IdentityBootstrapConcurrencyTest` is the regression test: several threads
+racing `IdentityBootstrap.run()` against one shared in-memory H2 database
+reproduce the part of the bug that actually matters (concurrent
+check-then-insert against unique-constrained rows), even though a single
+JVM can't reproduce "several JVMs" itself.

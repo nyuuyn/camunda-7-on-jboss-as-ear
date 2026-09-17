@@ -11,19 +11,10 @@ import javax.ejb.Startup;
 import java.util.logging.Logger;
 
 /**
- * Replaces the old in-process JavaDelegate: this is the external task
- * handler for topic "demo-topic" (see process-application's
- * demo-process.bpmn). It only ever talks to the engine via the External
- * Task REST API (long-polling fetch-and-lock, then complete/fail) - no
- * compile-time dependency on camunda-engine, same as process-application.
- *
- * The client's fetch-and-lock loop is, by design, a single lightweight
- * polling thread (the client is meant to be run standalone, even in a
- * separate process from the engine) - not something worth forcing onto
- * JBoss's ManagedExecutorService the way ManagedJobExecutor's job
- * *execution* pool was. That was a real thread pool doing potentially
- * many concurrent invocations; this is one polling loop, same class of
- * thing as the engine's own job-acquisition thread.
+ * External task handler for topic "demo-topic" (see demo-process.bpmn) -
+ * talks to the engine only via the External Task REST API. See
+ * docs/arc42/08-crosscutting-concepts.md §8.1 for why its polling thread
+ * stays self-managed, unlike ManagedJobExecutor's execution pool.
  */
 @Singleton
 @Startup

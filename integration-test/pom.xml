@@ -15,17 +15,9 @@
 
   <name>integration-test</name>
   <description>
-    Builds a WildFly 26.1.3.Final image (a freely-pullable stand-in for
-    JBoss EAP 7.4 - see src/test/resources/docker/Dockerfile) with the
-    ProcessEngine datasource baked in, deploys ear/target/camunda-demo.ear
-    onto a container started from it via Testcontainers, and asserts the
-    demo process runs end-to-end and that the Job Executor's async
-    continuation actually ran on JBoss's ManagedExecutorService.
-
-    Opt-in only: bound to maven-failsafe-plugin (integration-test/verify
-    goals), not surefire, so "mvn clean package" - what the rest of this
-    project's README documents - never needs Docker. Run these with
-    "mvn verify" (Docker daemon required).
+    Testcontainers suite that deploys the built EAR to WildFly and verifies
+    it end-to-end. Opt-in via "mvn verify" (Docker required), not bound to
+    "mvn package". See docs/arc42/10-quality-requirements.md.
   </description>
 
   <properties>
