@@ -57,6 +57,34 @@ its H2 driver is bundled straight into `camunda-engine.war`'s own
 `WEB-INF/lib` (`camunda-engine/pom.xml`, `runtime`-scoped) - nothing to
 install on the server beforehand.
 
+## Run with Docker
+
+No local JDK/Maven/JBoss install needed - this builds the EAR and bakes it
+into a runnable WildFly image in one go:
+
+```sh
+docker build -t camunda-demo .
+docker run -p 8080:8080 camunda-demo
+```
+
+Once it's up, `http://localhost:8080/camunda-web-ui/` (Cockpit/Tasklist/
+Admin) and `http://localhost:8080/camunda-engine/engine-rest/` (the REST
+API) are reachable the same way they would be on a real deployment - the
+image only differs from a bare JBoss EAP host in how WildFly itself gets
+there (see [Deployment View §7.4](docs/arc42/07-deployment-view.md#74-standalone-docker-image)).
+
+If you have access to a real EAP image, point `BASE_IMAGE` at it to skip
+building the WildFly-on-JDK-17 stand-in stage entirely:
+
+```sh
+docker build --build-arg BASE_IMAGE=your-eap-image:tag -t camunda-demo .
+```
+
+This top-level `Dockerfile` is separate from
+`integration-test/src/test/resources/docker/Dockerfile`, which
+Testcontainers owns for `mvn verify` and copies the EAR in per test run
+instead of baking it in.
+
 ## Verify
 
 ```sh

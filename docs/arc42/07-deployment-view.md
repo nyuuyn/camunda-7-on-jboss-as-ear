@@ -95,7 +95,50 @@ Key differences from the production shape, and why:
 - **The EAR is copied in at container start, not baked into the image** -
   keeps the Docker layer cache valid across ordinary rebuilds of the EAR.
 
-## 7.3 CI
+## 7.4 Standalone Docker Image
+
+A third shape, at the repository root (`Dockerfile`, distinct from
+§7.2's `integration-test/src/test/resources/docker/Dockerfile`): a
+self-contained image for anyone who just wants to run the demo without
+installing a JDK, Maven, or JBoss locally.
+
+```mermaid
+flowchart TB
+    subgraph build["build stage (maven:3.9-eclipse-temurin-17)"]
+        src2["COPY . .\nmvn -pl ear -am package"]
+    end
+    subgraph runtime["runtime stage"]
+        wf2["wildfly-jdk17 stage\n(same $JBOSS_HOME-onto-JDK17\napproach as §7.2)"]
+        ear2["ear/target/camunda-demo.ear\nCOPY'd in at build time"]
+    end
+    build --> ear2
+    ear2 --> wf2 --> image2["camunda-demo image\nCMD standalone.sh -b 0.0.0.0"]
+```
+
+Differences from §7.2's Testcontainers image:
+
+- **It builds the EAR itself**, in a `maven:3.9-eclipse-temurin-17` stage
+  (`mvn -B -q -pl ear -am package`), rather than expecting one to already
+  exist under `ear/target/`. `docker build` here is the whole pipeline -
+  no local Maven run needed first.
+- **The EAR is baked into the image at build time**, not copied in at
+  container start - this image's entire purpose is to be immediately
+  runnable on its own (`docker run -p 8080:8080 camunda-demo`), so there's
+  no separate test harness re-copying a freshly-built EAR in per run the
+  way Testcontainers does. The trade-off: rebuilding the image after any
+  EAR change re-runs the Maven layer instead of reusing a cached image.
+- **`BASE_IMAGE` is still overridable** to a real EAP image for the same
+  reason as §7.2 - the `wildfly-jdk17` stage only exists as a
+  freely-pullable stand-in, and Docker skips building stages that aren't
+  referenced.
+- Same `WORKDIR $JBOSS_HOME` fix as §7.2, for the same reason (the
+  relative H2 file URL in `@DataSourceDefinition` resolves against
+  `user.dir`).
+
+See the top-level [README](../../README.md#run-with-docker) for the exact
+commands.
+
+## 7.5 CI
 
 GitHub Actions (`.github/workflows/ci.yml`), `ubuntu-latest`: checks out,
 sets up JDK 17, runs `mvn -B verify`. GitHub-hosted runners have Docker
