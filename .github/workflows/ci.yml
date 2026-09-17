@@ -28,3 +28,34 @@ jobs:
       # so Testcontainers needs no extra setup.
       - name: Build and run tests
         run: mvn -B verify
+
+      # Separate from the integration-test image above: this builds the
+      # top-level Dockerfile (the one covered in README.md's "Run with
+      # Docker" section), which does its own "mvn package" from scratch
+      # rather than reusing what "mvn verify" just produced - so this is
+      # the only thing in CI that actually exercises that Dockerfile.
+      - name: Build standalone Docker image
+        run: docker build -t camunda-demo .
+
+      - name: Smoke test standalone Docker image
+        run: |
+          set -euo pipefail
+          docker run -d --name camunda-demo-smoke -p 8080:8080 camunda-demo
+          trap 'docker logs camunda-demo-smoke || true; docker rm -f camunda-demo-smoke || true' EXIT
+
+          # Wait for the EAR to finish deploying (or fail fast on error/exit).
+          for _ in $(seq 1 60); do
+            if docker logs camunda-demo-smoke 2>&1 | grep -q 'WFLYSRV0010: Deployed "camunda-demo.ear"'; then
+              break
+            fi
+            if ! docker inspect -f '{{.State.Running}}' camunda-demo-smoke 2>/dev/null | grep -q true; then
+              echo "Container exited before deployment finished" >&2
+              exit 1
+            fi
+            sleep 3
+          done
+          docker logs camunda-demo-smoke 2>&1 | grep -q 'WFLYSRV0010: Deployed "camunda-demo.ear"'
+
+          curl -sf http://localhost:8080/camunda-engine/engine-rest/engine
+          curl -sf -o /dev/null http://localhost:8080/camunda-web-ui/
+          curl -sf http://localhost:8080/camunda-engine/engine-rest/process-definition | grep -q demoProcess
